@@ -18,6 +18,8 @@
     --ink:#f5f7fa;--ink-secondary:#aeb4bd;--ink-muted:#747b86;
     --surface:#08090b;--surface-panel:rgb(11 13 16 / 84%);
     --focus:#ffc928;--ok:#5bd47c;--danger:#ff5d6c;
+    --blue:#287cff;--cyan:#17b9f5;--purple:#8d42ef;--yellow:#ffd129;--orange:#ff8629;--green:#39cf78;--red:#f04455;
+    --title-cell:clamp(42px,6.8vw,88px);--title-radius:clamp(7px,.8vw,12px);
     /* Spec sets #fff on the accent fill, but that is 3.1:1. The accent itself
        is 6.4:1 on the surface, so the label goes dark and the hue is kept. */
     --on-accent:#140801;
@@ -32,7 +34,12 @@
     -webkit-font-smoothing:antialiased}
   button,select,input{font:inherit}
   button{touch-action:manipulation}
-  .sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+  .sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;clip-path:inset(50%)!important;white-space:nowrap!important;border:0!important}
+  @media(prefers-contrast:more){
+    .title-letter{border-width:2px}
+    .btn,.intro-start,.intro-secondary,.mode-card{border-color:currentColor}
+    .intro-desc,.intro-access,.play-help,.helptext,.orientation{color:#fff}
+  }
   body.kbd button:focus-visible,body.kbd select:focus-visible,body.kbd canvas:focus-visible{outline:3px solid var(--focus);outline-offset:3px}
 
   .intro-screen,.stage{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;
@@ -59,10 +66,33 @@
     display:flex;flex-direction:column;align-items:center}
   .eyebrow{margin:0 0 14px;padding:0;border:0;background:none;color:var(--accent);
     font-size:clamp(11px,1.4vmin,14px);font-weight:800;line-height:1.3;letter-spacing:.2em}
-  .intro-copy h1{display:flex;flex-direction:column;align-items:center;gap:8px;margin:0}
-  .intro-copy h1 .t-en{font-size:clamp(48px,9vmin,104px);font-weight:900;line-height:.9;letter-spacing:-.055em;color:#fff;
-    text-shadow:0 2px 0 rgb(255 255 255 / 10%),0 10px 36px rgb(0 0 0 / 70%)}
-  .intro-copy h1 .t-ko{margin:0;font-size:clamp(16px,2.2vmin,22px);font-weight:650;line-height:1.4;letter-spacing:.18em;color:var(--ink-secondary);text-shadow:none}
+  /* Block title — real text assembled to look like puzzle tiles.
+     Letters are dark ink, not white: white on the yellow tile is 1.46:1 and
+     four of the nine tiles fail even the 3:1 large-text floor. Dark ink puts
+     every tile between 8:1 and 13.5:1 while keeping the colours untouched. */
+  .block-title{display:flex;flex-direction:column;align-items:center;gap:clamp(9px,1.6vh,14px);margin:0}
+  .block-title__english{display:flex;align-items:center;justify-content:center;gap:clamp(6px,1vw,14px);max-width:100%}
+  .title-word{display:inline-flex;gap:clamp(3px,.45vw,7px)}
+  .title-letter{--letter-color:var(--blue);position:relative;display:grid;place-items:center;
+    width:var(--title-cell);aspect-ratio:.78;overflow:hidden;font-style:normal;
+    border:1px solid color-mix(in srgb,var(--letter-color) 62%,#000 38%);border-radius:var(--title-radius);
+    background:linear-gradient(145deg,rgb(255 255 255 / 44%) 0%,rgb(255 255 255 / 13%) 22%,transparent 46%),
+               linear-gradient(180deg,color-mix(in srgb,var(--letter-color) 88%,white 12%),var(--letter-color));
+    color:var(--on-accent);
+    font-size:calc(var(--title-cell) * .62);font-weight:950;line-height:1;letter-spacing:0;
+    text-shadow:0 1px 0 rgb(255 255 255 / 28%);
+    box-shadow:inset 2px 2px 0 rgb(255 255 255 / 25%),inset -3px -3px 0 rgb(0 0 0 / 22%),
+               0 4px 8px rgb(0 0 0 / 34%),0 0 16px color-mix(in srgb,var(--letter-color) 26%,transparent)}
+  .title-letter::before{content:"";position:absolute;inset:5px;border:1px solid rgb(255 255 255 / 14%);
+    border-radius:calc(var(--title-radius) - 3px);pointer-events:none}
+  /* the DotPad pin motif */
+  .title-letter::after{content:"";position:absolute;right:7px;bottom:7px;width:clamp(5px,.65vw,9px);aspect-ratio:1;
+    border-radius:50%;background:rgb(0 0 0 / 22%);box-shadow:inset 1px 1px 1px rgb(0 0 0 / 30%),0 1px 0 rgb(255 255 255 / 26%)}
+  .c-blue{--letter-color:var(--blue)}.c-cyan{--letter-color:var(--cyan)}.c-purple{--letter-color:var(--purple)}
+  .c-yellow{--letter-color:var(--yellow)}.c-orange{--letter-color:var(--orange)}.c-green{--letter-color:var(--green)}
+  .c-red{--letter-color:var(--red)}
+  .block-title__korean{font-size:clamp(16px,2.4vmin,24px);font-weight:850;line-height:1.25;letter-spacing:.12em;
+    color:var(--ink);text-shadow:0 2px 8px rgb(0 0 0 / 65%)}
   .intro-tagline{margin:clamp(18px,3vh,28px) 0 0;padding:0;border:0;background:none;box-shadow:none;
     color:var(--ink-secondary);font-size:clamp(15px,2vmin,19px);font-weight:500;line-height:1.65}
   .intro-desc{max-width:none;margin:6px 0 0;color:var(--ink-muted);font-size:clamp(13px,1.7vmin,15px);font-weight:500;line-height:1.6}
@@ -308,10 +338,11 @@
   .embed .brandtext span,.embed .orientation-diagram{display:none}
 
 
+  @media(max-width:720px){:root{--title-cell:clamp(38px,12.5vw,58px)}}
   @media(max-width:820px){
     .intro-bg{background-image:linear-gradient(180deg,rgb(0 0 0 / 10%),rgb(0 0 0 / 45%)),url("./assets/intro-bg-mobile.webp")}
     .intro-copy{padding:12px 6px;transform:none}
-    .intro-copy h1 .t-en{font-size:clamp(42px,13vw,62px)}
+    .block-title__english{flex-direction:column;gap:7px}
     .mode-choice{gap:8px;margin-top:18px}
     .mode-card{padding:12px 10px 13px}
     .mode-card strong{font-size:13.5px;margin-top:9px}
@@ -375,7 +406,14 @@
   <main class="intro-main">
     <div class="intro-copy">
       <p class="eyebrow" id="introEyebrow">촉각 블록 게임</p>
-      <h1 id="introTitle"><span class="t-en">DOT BLOCKS</span><span class="t-ko" aria-hidden="true">닷 블록스</span></h1>
+      <h1 class="block-title" id="introTitle">
+        <span class="sr-only" id="introTitleText">닷 블록스, DOT BLOCKS</span>
+        <span class="block-title__english" aria-hidden="true">
+          <span class="title-word"><i class="title-letter c-blue">D</i><i class="title-letter c-cyan">O</i><i class="title-letter c-purple">T</i></span>
+          <span class="title-word"><i class="title-letter c-yellow">B</i><i class="title-letter c-orange">L</i><i class="title-letter c-green">O</i><i class="title-letter c-blue">C</i><i class="title-letter c-purple">K</i><i class="title-letter c-red">S</i></span>
+        </span>
+        <span class="block-title__korean" aria-hidden="true">닷 블록스</span>
+      </h1>
       <p class="intro-tagline" id="introTagline">손끝으로 쌓고, 소리로 길을 찾다.</p>
       <p class="intro-desc" id="introDesc">닷패드를 세로로 세우고, 화면 없이 플레이하세요.</p>
       <div class="mode-choice" role="tablist" aria-label="게임 모드 선택">
@@ -479,9 +517,15 @@
 </div>
 
 <div class="pinwrap" id="pinwrap"><canvas id="pin" width="160" height="240" aria-hidden="true"></canvas><div class="cap" id="pinCap">세로 사용 기준 40×60<br>촘촘=고정 · 테두리=현재 · 두 점=착지</div></div>
-<script src="/tts.js"></script>
-<script src="./tts.js"></script>
 <script src="./audio-engine.js"></script>
+<script>
+/* 플랫폼 TTS(/tts.js)와 서버 음성(/api/tts)은 닷게임즈 호스트에만 존재한다.
+   호스트에 올라간 경우에만 iframe 안에서 실행되므로, 단독 실행일 때는
+   아예 요청하지 않고 내장 superdot-tts-core.js를 쓴다. */
+(function(){if(window.parent===window)return;
+  document.write('<scr'+'ipt src="/tts.js"><\/scr'+'ipt>')})();
+</script>
+<script src="./tts.js"></script>
 <script>
 (function(){
   'use strict';
@@ -509,7 +553,14 @@
   const portraitBadge=$('portraitBadge');
   const canvasWrap=$('canvasWrap'),fxPop=$('fxPop');
 
-  const audio=new window.DotBlocksAudioEngine();
+  const audio=(function(){
+    const Engine=window.DotBlocksAudioEngine;
+    if(typeof Engine==='function')return new Engine();
+    console.error('[DOT BLOCKS] audio-engine.js를 불러오지 못해 무음으로 실행합니다.');
+    const noop=()=>{};
+    return {ensure:noop,start:noop,stop:noop,pause:noop,duck:noop,earcon:noop,
+            setMusicEnabled:noop,setSfxEnabled:noop,setMusicStyle:noop};
+  })();
   let settings={speech:true,sfx:true,music:true,assist:true,speed:'relaxed',musicStyle:'procedural'};
   try{settings={...settings,...JSON.parse(localStorage.getItem('dotblocks-settings')||'{}')}}catch(e){}
   settings.speed=['relaxed','standard','challenge'].includes(settings.speed)?settings.speed:'relaxed';
@@ -547,11 +598,12 @@
   function ensureAudio(){audio.ensure();audio.setMusicEnabled(settings.music);audio.setSfxEnabled(settings.sfx)}
   function stopSpeech(){if(window.TW_TTS&&TW_TTS.stop)TW_TTS.stop();try{speechSynthesis.cancel()}catch(e){}}
   // TW_TTS routes through a server endpoint (/api/tts) that only exists on the Dot Games
-  // host platform. On GitHub Pages or a local file:// copy that endpoint 404s, and TW_TTS
-  // only falls back to the browser voice after two failed requests (~270ms measured) —
-  // far too slow when speech is this game's primary feedback channel. On those hosts we
-  // skip TW_TTS entirely and speak directly. Same pattern as dot-minesweeper / dotfootsteps.
-  const USE_BROWSER_VOICE = /(^|\.)github\.io$/i.test(location.hostname) || location.protocol === 'file:';
+  // host platform, and TW_TTS only falls back to the browser voice after two failed
+  // requests (~270ms measured) — far too slow when speech is the primary feedback channel.
+  // The game is only ever on that platform when embedded, so frame detection is a more
+  // reliable signal than matching hostnames, and it keeps every standalone deployment
+  // (GitHub Pages, previews, file://) free of 404s instead of just the one we hard-coded.
+  const USE_BROWSER_VOICE = window.parent === window || location.protocol === 'file:';
   function speak(text,critical=false){
     if(!text)return;
     if(critical){criticalLive.textContent='';requestAnimationFrame(()=>criticalLive.textContent=text)}
@@ -885,7 +937,7 @@
   window.addEventListener('resize',()=>{clearTimeout(window.__dbRz);window.__dbRz=setTimeout(()=>{renderAll();twSize()},100)});document.addEventListener('visibilitychange',()=>{if(!stage.hidden&&document.hidden&&mode==='drop'&&running&&!over&&!paused){paused=true;audio.pause();$('pauseLabel').textContent=S('계속','Resume');showPauseState();announce(S('앱이 백그라운드로 이동해 자동 일시정지했습니다.','Automatically paused while the app is in the background.'),{phase:'ready',tts:false})}});document.addEventListener('pointerdown',()=>document.body.classList.remove('kbd'));document.body.addEventListener('pointerdown',function once(){ensureAudio();try{speechSynthesis.resume()}catch(e){}document.body.removeEventListener('pointerdown',once)},{once:true});
   window.getDotpadFrame=()=>encodeHardware(portraitToHardware(buildPortraitFrame()));window.getPortraitFrame=()=>buildPortraitFrame();window.getAccessibilityState=()=>({mode,scanMode,settings:{...settings},danger:mode==='drop'?dangerLevel():0,frameLength:window.getDotpadFrame().length,brailleLine:brailleLine()});
 
-  function applyLang(){if(LANG!=='en')return;document.documentElement.lang='en';document.title='DOT BLOCKS';$('blindBadge').textContent='BLIND-FIRST';$('scoreTitle').textContent='Game Stats';$('scoreLabel').textContent='Score';$('secondaryLabel').textContent='Lines';$('levelLabel').textContent='Level';$('bestLabel').textContent='Best';$('nextTitle').textContent='Next Piece';$('holdTitle').textContent='Held Piece';$('holdHint').textContent='C / F1+F2';$('verticalTitle').textContent='Portrait DotPad';$('orientationText').innerHTML='<strong>40×60 logical pins</strong> rotate automatically into the physical 60×40 output. Stand the DotPad with controls at the bottom.';$('legend').innerHTML='<span class="legend-sample solid" aria-hidden="true"></span><span>Dense: settled block</span><span class="legend-sample outline" aria-hidden="true"></span><span>Outline: moving piece</span><span class="legend-sample ghost" aria-hidden="true"></span><span>Two dots: landing preview</span>';$('trayTitle').textContent='Pieces';$('controlsTitle').textContent='Controls';$('padKeysTitle').textContent='DotPad Keys';$('accessTitle').textContent='Audio & Accessibility';$('speechLabel').textContent='Speech guidance';$('sfxLabel').textContent='Directional earcons';$('musicLabel').textContent='Procedural music';$('assistLabel').textContent='Tactile-friendly lock delay';$('speedLabel').textContent='Drop speed';speedSelect.options[0].text='Relaxed';speedSelect.options[1].text='Standard';speedSelect.options[2].text='Challenge';$('musicStyleLabel').textContent='Music style';musicStyleSelect.options[0].text='Default (ambient)';musicStyleSelect.options[1].text='Retro (chiptune)';$('newLabel').textContent='Start';$('pauseLabel').textContent='Pause';$('statusLabel').textContent='Status';$('scanLabel').textContent='Surface scan';$('helpLabel').textContent='How to play';$('orientationLabel').textContent=rotateDir==='cw'?'Rotate: right':'Rotate: left';$('dpLabel').textContent='Connect DotPad';$('introDpLabel').textContent='Connect DotPad first';$('pinLabel').textContent='Pin preview';$('playHelp').textContent='← → move · ↑ rotate · ↓ soft drop · Space hard drop · C hold';syncSoundBtn();$('pinCap').innerHTML='Portrait 40×60<br>Dense=settled · outline=current · two dots=landing';$('introEyebrow').textContent='Tactile block game';$('introTagline').textContent='Build by touch, navigate by sound.';$('introDesc').textContent='Stand the DotPad upright and play without the screen.';$('dropModeName').textContent='Drop Mode';$('dropModeDesc').textContent='Move and rotate pieces to complete horizontal lines.';$('puzzleModeName').textContent='Block Puzzle';$('puzzleModeDesc').textContent='Place pieces to clear horizontal and vertical lines.';$('introAccess').textContent='Enter to start · 1/2 to pick a mode';$('settingsTitle').textContent='Game Settings';$('pauseTitle').textContent='Paused';$('pauseDesc').textContent='The game and falling piece are paused. The current DotPad pin state is preserved.';$('resumeBtn').textContent='Resume';$('pauseHomeBtn').textContent='Back to Intro';$('resultTitle').textContent='Game Over';$('restartBtn').textContent='Play Again';$('resultHomeBtn').textContent='Choose Another Mode';setToggle(speechToggle,'speechState',settings.speech);setToggle(sfxToggle,'sfxState',settings.sfx);setToggle(musicToggle,'musicState',settings.music);setToggle(assistToggle,'assistState',settings.assist)}
+  function applyLang(){if(LANG!=='en')return;document.documentElement.lang='en';document.title='DOT BLOCKS';$('blindBadge').textContent='BLIND-FIRST';$('scoreTitle').textContent='Game Stats';$('scoreLabel').textContent='Score';$('secondaryLabel').textContent='Lines';$('levelLabel').textContent='Level';$('bestLabel').textContent='Best';$('nextTitle').textContent='Next Piece';$('holdTitle').textContent='Held Piece';$('holdHint').textContent='C / F1+F2';$('verticalTitle').textContent='Portrait DotPad';$('orientationText').innerHTML='<strong>40×60 logical pins</strong> rotate automatically into the physical 60×40 output. Stand the DotPad with controls at the bottom.';$('legend').innerHTML='<span class="legend-sample solid" aria-hidden="true"></span><span>Dense: settled block</span><span class="legend-sample outline" aria-hidden="true"></span><span>Outline: moving piece</span><span class="legend-sample ghost" aria-hidden="true"></span><span>Two dots: landing preview</span>';$('trayTitle').textContent='Pieces';$('controlsTitle').textContent='Controls';$('padKeysTitle').textContent='DotPad Keys';$('accessTitle').textContent='Audio & Accessibility';$('speechLabel').textContent='Speech guidance';$('sfxLabel').textContent='Directional earcons';$('musicLabel').textContent='Procedural music';$('assistLabel').textContent='Tactile-friendly lock delay';$('speedLabel').textContent='Drop speed';speedSelect.options[0].text='Relaxed';speedSelect.options[1].text='Standard';speedSelect.options[2].text='Challenge';$('musicStyleLabel').textContent='Music style';musicStyleSelect.options[0].text='Default (ambient)';musicStyleSelect.options[1].text='Retro (chiptune)';$('newLabel').textContent='Start';$('pauseLabel').textContent='Pause';$('statusLabel').textContent='Status';$('scanLabel').textContent='Surface scan';$('helpLabel').textContent='How to play';$('orientationLabel').textContent=rotateDir==='cw'?'Rotate: right':'Rotate: left';$('dpLabel').textContent='Connect DotPad';$('introDpLabel').textContent='Connect DotPad first';$('pinLabel').textContent='Pin preview';$('playHelp').textContent='← → move · ↑ rotate · ↓ soft drop · Space hard drop · C hold';syncSoundBtn();$('pinCap').innerHTML='Portrait 40×60<br>Dense=settled · outline=current · two dots=landing';$('introTitleText').textContent='DOT BLOCKS';$('introEyebrow').textContent='Tactile block game';$('introTagline').textContent='Build by touch, navigate by sound.';$('introDesc').textContent='Stand the DotPad upright and play without the screen.';$('dropModeName').textContent='Drop Mode';$('dropModeDesc').textContent='Move and rotate pieces to complete horizontal lines.';$('puzzleModeName').textContent='Block Puzzle';$('puzzleModeDesc').textContent='Place pieces to clear horizontal and vertical lines.';$('introAccess').textContent='Enter to start · 1/2 to pick a mode';$('settingsTitle').textContent='Game Settings';$('pauseTitle').textContent='Paused';$('pauseDesc').textContent='The game and falling piece are paused. The current DotPad pin state is preserved.';$('resumeBtn').textContent='Resume';$('pauseHomeBtn').textContent='Back to Intro';$('resultTitle').textContent='Game Over';$('restartBtn').textContent='Play Again';$('resultHomeBtn').textContent='Choose Another Mode';setToggle(speechToggle,'speechState',settings.speech);setToggle(sfxToggle,'sfxState',settings.sfx);setToggle(musicToggle,'musicState',settings.music);setToggle(assistToggle,'assistState',settings.assist)}
 
   applyLang();syncSoundBtn();setMode(params.get('mode')==='puzzle'?'puzzle':'drop',false);showIntro();loadSDK();if(params.get('preview')==='1'){pinwrap.classList.add('show');pinToggle.setAttribute('aria-pressed','true');drawPin()}
   tw('ready',{modes:['drop','puzzle'],lang:LANG});twSize();
