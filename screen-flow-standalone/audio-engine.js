@@ -12,6 +12,43 @@
   const NOTE = 440;
   const semitone = n => NOTE * Math.pow(2, n / 12);
 
+  /*
+   * Retro preset melody source: "Korobeiniki" (Коробейники), a Russian folk song
+   * first published in 1861 and long in the public domain worldwide.
+   *
+   * The note sequence below is the traditional folk melody. The arrangement around
+   * it — voicing, bass line, percussion, panning, tempo/danger response — was
+   * written from scratch for DOT BLOCKS and is released under CC0 with the rest of
+   * this file. It is NOT transcribed from, and does not reproduce, any commercial
+   * game soundtrack or copyrighted arrangement of this melody.
+   *
+   * Values are semitone offsets from A4 (semitone(0) === 440 Hz), paired with a
+   * duration in sixteenth-note steps. Eight bars of 4/4 = 128 steps total.
+   */
+  const RETRO_MELODY = [
+    [7, 4], [2, 2], [3, 2], [5, 4], [3, 2], [2, 2],
+    [0, 4], [0, 2], [3, 2], [7, 4], [5, 2], [3, 2],
+    [2, 6], [3, 2], [5, 4], [7, 4],
+    [3, 4], [0, 4], [0, 8],
+    [5, 6], [8, 2], [12, 4], [10, 2], [8, 2],
+    [7, 6], [3, 2], [7, 4], [5, 2], [3, 2],
+    [2, 4], [2, 2], [3, 2], [5, 4], [7, 4],
+    [3, 4], [0, 4], [0, 8]
+  ];
+  const RETRO_LOOP_STEPS = 128;
+  // One bass root per bar (E minor): Em Em Bm Em Dm Am B Em
+  const RETRO_BASS = [7, 7, 2, 7, 5, 0, 2, 7];
+  // Flattened step -> note-onset lookup, built once at load.
+  const RETRO_STEPS = (() => {
+    const map = new Array(RETRO_LOOP_STEPS).fill(null);
+    let cursor = 0;
+    for (const [note, dur] of RETRO_MELODY) {
+      if (cursor < RETRO_LOOP_STEPS) map[cursor] = { note, dur };
+      cursor += dur;
+    }
+    return map;
+  })();
+
   class DotBlocksAudioEngine {
     constructor() {
       this.ctx = null;
@@ -19,6 +56,7 @@
       this.musicBus = null;
       this.sfxBus = null;
       this.musicEnabled = true;
+      this.musicStyle = 'procedural';
       this.sfxEnabled = true;
       this.musicVolume = 0.16;
       this.sfxVolume = 0.46;
@@ -79,6 +117,17 @@
       this.step = 0;
     }
 
+    setMusicStyle(style) {
+      const next = style === 'retro' ? 'retro' : 'procedural';
+      if (next === this.musicStyle) return;
+      this.musicStyle = next;
+      this.step = 0;
+    }
+
+    loopLength() {
+      return this.musicStyle === 'retro' ? RETRO_LOOP_STEPS : 32;
+    }
+
     setLevel(level) {
       this.level = Math.max(1, Number(level) || 1);
     }
@@ -134,13 +183,14 @@
       const ahead = 0.18;
       while (this.nextStepAt < this.ctx.currentTime + ahead) {
         this.scheduleMusicStep(this.step, this.nextStepAt);
-        this.step = (this.step + 1) % 32;
+        this.step = (this.step + 1) % this.loopLength();
         this.nextStepAt += 60 / this.tempo() / 4;
       }
       this.updateMusicGain();
     }
 
     scheduleMusicStep(step, at) {
+      if (this.musicStyle === 'retro') return this.scheduleRetroStep(step, at);
       if (this.mode === 'puzzle') {
         const degrees = [0, 4, 7, 11, 7, 4, 2, 7];
         if (step % 2 === 0) this.tone(semitone(-17 + degrees[(step / 2) % degrees.length]), 0.42, at, 'sine', 0.11, this.musicBus, -0.2);
@@ -158,6 +208,37 @@
         if (this.danger > 0 && step % 8 === 4) {
           this.noise(0.035, at, 0.025 * this.danger, this.musicBus, 0);
         }
+      }
+    }
+
+    scheduleRetroStep(step, at) {
+      const stepSeconds = 60 / this.tempo() / 4;
+      const calm = this.mode === 'puzzle';
+      const hit = RETRO_STEPS[step];
+      if (hit) {
+        // Slight gap before the next note so repeated pitches stay articulated.
+        const dur = Math.max(0.08, hit.dur * stepSeconds * 0.9);
+        this.tone(
+          semitone(hit.note), dur, at,
+          calm ? 'triangle' : 'square',
+          calm ? 0.055 : 0.062,
+          this.musicBus,
+          step % 32 < 16 ? -0.14 : 0.14
+        );
+      }
+      if (step % 4 === 0) {
+        const bar = Math.floor(step / 16) % RETRO_BASS.length;
+        const beat = (step / 4) % 4;
+        const root = RETRO_BASS[bar];
+        // Alternate root and fifth for a walking chiptune bass.
+        const degree = beat % 2 === 0 ? root : root + 7;
+        this.tone(semitone(-24 + degree), stepSeconds * 3.1, at, 'triangle', calm ? 0.06 : 0.08, this.musicBus, 0);
+      }
+      if (!calm && step % 4 === 2) {
+        this.noise(0.026, at, 0.014, this.musicBus, 0);
+      }
+      if (this.danger > 0 && step % 16 === 12) {
+        this.noise(0.04, at, 0.02 * this.danger, this.musicBus, 0);
       }
     }
 
