@@ -1,12 +1,39 @@
-# DOT BLOCKS — 시각장애인 우선 세로형 DotPad 블록 게임
+<div align="center">
 
-**라이브 데모**: https://byeol-coder.github.io/dot-blocks/
+# 🧩 DOT BLOCKS
 
-DOT BLOCKS는 화면을 보지 않아도 **DotPad의 촉각 그래픽, 기능키, 음성, 방향 효과음만으로 플레이**할 수 있도록 설계한 블록 게임입니다. 게임 내부 보드는 40×60 세로 좌표이며, 실제 DotPad 60×40 출력으로 전송하기 직전에 자동 회전합니다.
+### 시각장애인 우선 세로형 DotPad 블록 게임
 
-이 저장소 루트가 곧 게임입니다(인트로 → 플레이 화면이 같은 주소에서 이어집니다). 화면 UI 없이 촉각·음성 중심으로 단순화한 변형은 [blind-first-standalone](blind-first-standalone/README.md)에 따로 있습니다.
+닷패드의 촉각 그래픽 · 기능키 · 음성 · 방향 효과음만으로 완주할 수 있는 블록 게임
 
-## 게임 모드
+[![Live Demo](https://img.shields.io/badge/▶_Live_Demo-byeol--coder.github.io-ff6b2c?style=for-the-badge)](https://byeol-coder.github.io/dot-blocks/)
+[![Accessibility](https://img.shields.io/badge/Accessibility-Blind--first-43d17d?style=for-the-badge)](ACCESSIBILITY.md)
+[![Audio License](https://img.shields.io/badge/Audio-CC0--1.0-blue?style=for-the-badge)](AUDIO-LICENSE.md)
+[![Made with](https://img.shields.io/badge/Made_with-Vanilla_JS-f7df1e?style=for-the-badge&logo=javascript&logoColor=000)](index.html)
+
+<img src="previews/intro-desktop.png" alt="DOT BLOCKS 인트로 화면" width="720">
+
+</div>
+
+---
+
+이 저장소 루트가 곧 게임입니다 — 인트로 → 플레이 화면이 **같은 주소에서 그대로 이어집니다**.
+화면 UI 없이 촉각·음성 중심으로 더 단순화한 변형은 [`blind-first-standalone/`](blind-first-standalone/README.md)에 따로 있습니다.
+
+## 목차
+
+- [게임 모드](#-게임-모드)
+- [촉각 표현](#-촉각-표현)
+- [청각 표현](#-청각-표현)
+- [키보드](#-키보드)
+- [DotPad 키](#-dotpad-키)
+- [모바일 제스처](#-모바일-제스처)
+- [URL 옵션](#-url-옵션)
+- [닷게임즈 플랫폼 연동](#-닷게임즈-플랫폼-연동)
+- [화면 및 에셋 구조](#-화면-및-에셋-구조)
+- [기술 파일](#-기술-파일)
+
+## 🎮 게임 모드
 
 ### 1. 낙하 모드
 
@@ -28,7 +55,7 @@ DOT BLOCKS는 화면을 보지 않아도 **DotPad의 촉각 그래픽, 기능키
 - 겹치는 위치는 X자 촉각 질감
 - 행별 점유 상태 상세 읽기
 
-## 촉각 표현
+## 🖐 촉각 표현
 
 | 핀 질감 | 의미 |
 |---|---|
@@ -39,7 +66,7 @@ DOT BLOCKS는 화면을 보지 않아도 **DotPad의 촉각 그래픽, 기능키
 | 열의 윗면만 표시 | 촉각 표면 스캔 모드 |
 | 상단 좌우 경고점 | 낙하 모드 위험 높이 |
 
-## 청각 표현
+## 🔊 청각 표현
 
 - 좌우 위치: 스테레오 방향
 - 블록 높이: 효과음 음높이
@@ -50,7 +77,7 @@ DOT BLOCKS는 화면을 보지 않아도 **DotPad의 촉각 그래픽, 기능키
 
 배경음악은 외부 음원 파일을 사용하지 않는 **Web Audio 기반 절차형 음악**입니다. 소스 코드는 `audio-engine.js`이며 CC0-1.0으로 배포됩니다.
 
-## 키보드
+## ⌨️ 키보드
 
 ### 낙하 모드
 
@@ -80,7 +107,7 @@ DOT BLOCKS는 화면을 보지 않아도 **DotPad의 촉각 그래픽, 기능키
 - `N`: 새 게임
 - `O`: 세로 회전 방향 변경
 
-## DotPad 키
+## 🎛 DotPad 키
 
 ### 낙하 모드
 
@@ -106,7 +133,7 @@ DOT BLOCKS는 화면을 보지 않아도 **DotPad의 촉각 그래픽, 기능키
 - 오른쪽 기능키 RPF4: 현재 상태
 - LPF1: 새 게임
 
-## 모바일 제스처
+## 📱 모바일 제스처
 
 ### 낙하 모드
 
@@ -120,7 +147,7 @@ DOT BLOCKS는 화면을 보지 않아도 **DotPad의 촉각 그래픽, 기능키
 - 탭: 배치
 - 상하좌우 스와이프: 위치 이동
 
-## URL 옵션
+## 🔗 URL 옵션
 
 - `?mode=drop` 또는 `?mode=puzzle`
 - `?lang=ko` 또는 `?lang=en`
@@ -128,9 +155,9 @@ DOT BLOCKS는 화면을 보지 않아도 **DotPad의 촉각 그래픽, 기능키
 - `?preview=1`
 - `?rotate=cw` 또는 `?rotate=ccw`
 
-예: `/dottetris/?mode=drop&preview=1&rotate=cw`
+예: `https://byeol-coder.github.io/dot-blocks/?mode=puzzle&lang=en`
 
-## 닷게임즈 플랫폼 연동
+## 🔌 닷게임즈 플랫폼 연동
 
 `dot-games-host`에 얹으면 별도 수정 없이 다음이 동작합니다.
 
@@ -148,8 +175,7 @@ DOT BLOCKS는 화면을 보지 않아도 **DotPad의 촉각 그래픽, 기능키
 
   수신은 `tw:pause`, `tw:resume`, `tw:setLang`(`lang: 'ko' | 'en'`)입니다. 부모 프레임이 없으면 전부 무시되므로 단독 실행에도 영향이 없습니다.
 
-
-## 화면 및 에셋 구조
+## 🧩 화면 및 에셋 구조
 
 두 화면 모두 **세로 Flex 한 덩어리**입니다. 상단 영역은 위에 고정되고, 가운데 영역이 남는 높이를 전부 차지하면서 콘텐츠를 정중앙에 놓고, 안내·컨트롤은 아래에 고정됩니다. 컨트롤 개수나 상태 문구 길이가 달라져도 보드 위치가 흔들리지 않습니다.
 
@@ -164,7 +190,7 @@ DOT BLOCKS는 화면을 보지 않아도 **DotPad의 촉각 그래픽, 기능키
 
 보드를 감싼 닷패드 베젤(`assets/board-frame.webp`)은 배경이 아니라 **보드 셸 요소**입니다. 아트워크의 안쪽 창이 398×816으로 보드의 1:2 비율과 같아서, 화면 배경으로 깔면 뷰포트 비율에 따라 캔버스와 어긋납니다. 프레임 비율(`473 / 889`)과 안쪽 창에서 환산한 퍼센트 패딩을 셸에 직접 주어 어떤 크기에서도 1px 이내로 맞물립니다. 플레이 화면 배경 자체는 CSS로 생성해 인트로와 구분합니다. 자세한 기준은 [`assets/ASSETS.md`](assets/ASSETS.md)를 참고하세요.
 
-## 기술 파일
+## 📁 기술 파일
 
 - `index.html`: UI, 게임 규칙, 촉각 프레임, DotPad 입출력
 - `audio-engine.js`: CC0 절차형 BGM과 방향 이어콘
@@ -176,4 +202,14 @@ DOT BLOCKS는 화면을 보지 않아도 **DotPad의 촉각 그래픽, 기능키
 - `assets/items/*.svg`: 별·폭탄·무지개·랜덤 특수 아이템 이미지 자산
 - `UI-ASSET-GUIDE.md`: 이미지/CSS/Canvas 분리 기준
 - `ACCESSIBILITY.md`: 시각장애인 사용자 기준 설계 명세
+- `AUDIO-LICENSE.md`: 배경음악 출처와 라이선스
 - `QA.md`: 검증 결과와 실제 기기 테스트 항목
+- `CHANGELOG.md`: 변경 이력
+
+---
+
+<div align="center">
+
+Made for tactile-first play · [블라인드 퍼스트 변형](blind-first-standalone/README.md) · [접근성 명세](ACCESSIBILITY.md)
+
+</div>
