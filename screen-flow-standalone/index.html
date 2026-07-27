@@ -278,8 +278,7 @@
   let sdk=null,scanner=null,KeyCodes=null,DataCodes=null,dpConnected=false;
   let dropTimer=0,dropLast=0,gravityAccumulator=0,groundedAt=0,lastDanger=0;
 
-  // Canonical Tetris piece colours (I cyan, O yellow, T purple, S green, Z red, J blue, L orange).
-  // T and J are brightened from the classic values so every piece clears 4.5:1 on the dark board.
+  // Original palette, deliberately distinct from the canonical Tetris color scheme.
   const COLORS=['#000000','#ff693f','#46c9ff','#ffd059','#a77bff','#55db82','#ff5fa2','#7f8cff'];
   const SHAPES={
     I:[[0,1],[1,1],[2,1],[3,1]],O:[[0,0],[1,0],[0,1],[1,1]],T:[[0,0],[1,0],[2,0],[1,1]],
@@ -300,12 +299,18 @@
 
   function ensureAudio(){audio.ensure();audio.setMusicEnabled(settings.music);audio.setSfxEnabled(settings.sfx)}
   function stopSpeech(){if(window.TW_TTS&&TW_TTS.stop)TW_TTS.stop();try{speechSynthesis.cancel()}catch(e){}}
+  // TW_TTS routes through a server endpoint (/api/tts) that only exists on the Dot Games
+  // host platform. On GitHub Pages or a local file:// copy that endpoint 404s, and TW_TTS
+  // only falls back to the browser voice after two failed requests (~270ms measured) —
+  // far too slow when speech is this game's primary feedback channel. On those hosts we
+  // skip TW_TTS entirely and speak directly. Same pattern as dot-minesweeper / dotfootsteps.
+  const USE_BROWSER_VOICE = /(^|\.)github\.io$/i.test(location.hostname) || location.protocol === 'file:';
   function speak(text,critical=false){
     if(!text)return;
     if(critical){criticalLive.textContent='';requestAnimationFrame(()=>criticalLive.textContent=text)}
     if(!settings.speech)return;
     audio.duck(Math.min(5200,900+text.length*55));
-    if(window.TW_TTS){TW_TTS.setLang&&TW_TTS.setLang(LANG);TW_TTS.speak(text);return}
+    if(!USE_BROWSER_VOICE&&window.TW_TTS){TW_TTS.setLang&&TW_TTS.setLang(LANG);TW_TTS.speak(text);return}
     try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang=LANG==='en'?'en-US':'ko-KR';u.rate=.95;speechSynthesis.speak(u)}catch(e){}
   }
   function announce(text,{phase='play',tts=true,critical=false}={}){statusText.textContent=text;status.dataset.phase=phase;if(tts)speak(text,critical)}

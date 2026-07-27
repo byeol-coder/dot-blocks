@@ -1,5 +1,15 @@
 # Changelog
 
+## GitHub Pages 음성 안내 지연 제거
+
+- `TW_TTS`는 `/api/tts` 서버 엔드포인트를 우선 시도하는데, 이 엔드포인트는 Dot Games 호스트
+  플랫폼에만 존재함. GitHub Pages(`*.github.io`)나 `file://`로 열면 매번 404 후 브라우저
+  음성으로 폴백하느라 첫 안내까지 약 272ms가 밀림
+- `speak()`에 호스트 판별을 추가해 `github.io`/`file://`에서는 `TW_TTS`를 건너뛰고
+  `speechSynthesis`로 직행 (첫 음성까지 272ms → 40ms). 그 외 호스트(닷게임즈 플랫폼 등)는
+  기존과 동일하게 `TW_TTS` 사용 — dot-minesweeper/dotfootsteps와 같은 패턴
+- 음성이 이 게임의 주 피드백 채널이라 안내마다 밀리는 지연이 특히 중요했음
+
 ## 순수 배경 적용 · 인트로 문구 축약
 
 - 텍스트·버튼이 구워지지 않은 순수 배경 5종으로 교체 (인트로/플레이 각 가로·세로, 설정·결과용)
