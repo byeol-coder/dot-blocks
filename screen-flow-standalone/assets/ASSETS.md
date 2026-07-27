@@ -17,7 +17,8 @@ The default tetrominoes are **not** bitmap assets — they are drawn by Canvas s
 rotation, contrast and responsive sizing stay reliable, and so the tactile DotPad frame is
 generated from the same source of truth as the screen.
 
-Piece colours use an original palette deliberately distinct from the canonical Tetris
-scheme (no piece maps to the familiar cyan/yellow/purple/green/red/blue/orange set).
+Piece colours use the project's own palette rather than the canonical Tetris scheme.
+The tactile DotPad output does not depend on colour at all — pin state is what conveys
+the board — so the palette is a purely visual choice.
 
 Background images were generated for this project. The item SVG files are original project assets.
