@@ -67,7 +67,7 @@
   /* Screen architecture: intro → play → pause/result. Live text and controls stay HTML/CSS. */
   body{overflow:hidden;background:#050913}
   .intro-screen{position:fixed;inset:0;z-index:50;display:grid;grid-template-rows:auto 1fr;background:#07101f url('./assets/intro-bg.webp') center/cover no-repeat;color:#fff;overflow:auto}
-  .intro-screen::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(3,8,18,.94) 0%,rgba(3,8,18,.78) 42%,rgba(3,8,18,.18) 72%,rgba(3,8,18,.52) 100%),linear-gradient(0deg,rgba(3,8,18,.92),transparent 45%);pointer-events:none}
+  .intro-screen::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse 46% 36% at 55% 80%,rgba(3,8,18,.98) 0%,rgba(3,8,18,.95) 55%,rgba(3,8,18,.55) 80%,transparent 100%),linear-gradient(90deg,rgba(3,8,18,.94) 0%,rgba(3,8,18,.78) 42%,rgba(3,8,18,.18) 72%,rgba(3,8,18,.52) 100%),linear-gradient(0deg,rgba(3,8,18,.92),transparent 45%);pointer-events:none}
   .intro-top,.intro-main{position:relative;z-index:1}
   .intro-top{display:flex;justify-content:space-between;align-items:center;padding:26px clamp(22px,5vw,76px)}
   .intro-brand{display:flex;align-items:center;gap:12px;font-weight:950;letter-spacing:.04em}.intro-brand .brandmark{width:40px;height:40px}.intro-kicker{font-size:12px;color:#b9c7df;font-weight:800;letter-spacing:.12em}
