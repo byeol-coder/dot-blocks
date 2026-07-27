@@ -2,6 +2,8 @@
 
 시각장애인 우선 세로형 DotPad 블록 게임. DotPad의 촉각 그래픽, 기능키, 음성, 방향 효과음만으로 플레이할 수 있도록 설계됨.
 
+**라이브 데모**: https://byeol-coder.github.io/dot-blocks/
+
 ## 변형(Variant)
 
 - [screen-flow-standalone](screen-flow-standalone/README.md): 인트로/플레이/설정/일시정지/결과 화면 흐름을 포함한 완전한 UI 버전
