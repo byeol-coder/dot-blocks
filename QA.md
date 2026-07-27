@@ -1,5 +1,24 @@
 # DOT BLOCKS Blind-first QA
 
+## P0 소스 반영 — 검증 결과
+
+- DOM 중복 없음: `#introScreen` 1, `#startSelectedBtn` 1, `#board` 1, 타이틀 타일 9
+- 실패 요청 0건, `pageerror` 0건, 콘솔 에러 0건 (`Blind-first upgrade skipped` 소멸)
+- 설정 시트에 음성 안내 방식 셀렉트 노출, 낙하 방식 5종(`tactile,turn,relaxed,standard,challenge`)
+- 낙하 방식 기본값 `tactile` 적용 확인
+- 기본값(슈퍼닷 TTS)에서 `status[aria-live]=off`, `criticalLive[role]=status` — 합성음과 겹쳐 읽지 않음
+- 즉시 낙하: `Space` 1회로는 점자 라인 불변, 2회째에 확정됨
+- 닷패드 프레임 600 hex 유지, `kind==='flash'`·`enterPadSettings` 코드 존재
+- 소리 토글: 끄면 시트 3개 모두 "꺼짐", 재클릭 시 복원 (`syncSettingUI`와 양방향 연결)
+- 임베드 계약 `ready`/`resize`/`gameStart`/`exit`, `tw:pause`·`tw:resume` 정상
+- 임베드일 때만 `/tts.js`·`/api/tts` 요청 발생(정상), 단독 실행에서는 0건
+
+### 실제 닷패드에서 확인이 필요한 항목
+
+1. 촉각 턴제에서 바닥 안내 → F2+F3 두 번 확정까지의 흐름이 실제 손으로 자연스러운지
+2. 설정 메뉴 7개 항목을 F1/F2로 오가는 음성 길이가 부담스럽지 않은지
+3. 고정 블록(작고 촘촘) vs 움직이는 블록(큰 빈 테두리) 대비가 손끝에서 실제로 구분되는지
+
 ## 블록 타이틀 · 콘솔 — 검증 결과
 
 ### 콘솔

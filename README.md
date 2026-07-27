@@ -134,7 +134,7 @@ DOT BLOCKS는 화면을 보지 않아도 **DotPad의 촉각 그래픽, 기능키
 
 `dot-games-host`에 얹으면 별도 수정 없이 다음이 동작합니다.
 
-- **음성**: 루트의 `/tts.js`가 먼저 로드되어 플랫폼 `TW_TTS`를 사용합니다. GitHub Pages처럼 해당 엔드포인트가 없는 환경에서는 저장소에 포함된 `superdot-tts-core.js`가 이어받습니다.
+- **음성**: 임베드로 실행될 때만 루트의 `/tts.js`를 불러 플랫폼 `TW_TTS`를 사용하고, 서버 음성(`/api/tts`)도 이때만 씁니다. 단독 실행에서는 두 요청 모두 나가지 않고 저장소에 포함된 `superdot-tts-core.js`의 브라우저 음성을 씁니다.
 - **소리 토글**: 음성·방향 효과음·배경음악을 한 번에 끄는 공통 컴포넌트를 인트로와 컨트롤 도크에 노출합니다. 끄기 직전 상태를 기억했다가 다시 켤 때 복원하며, 설정 서랍의 개별 스위치와 양방향으로 동기화됩니다.
 - **호스트 메시지**: 부모 프레임에 `postMessage({source:'dotarcade', game:'dot-blocks', type, …})`로 아래를 보냅니다.
 
@@ -168,8 +168,8 @@ DOT BLOCKS는 화면을 보지 않아도 **DotPad의 촉각 그래픽, 기능키
 
 - `index.html`: UI, 게임 규칙, 촉각 프레임, DotPad 입출력
 - `audio-engine.js`: CC0 절차형 BGM과 방향 이어콘
-- `tts.js`: 로컬 음성 로더 (호스트의 `/tts.js`가 있으면 그쪽 `TW_TTS`에 자리를 넘김)
-- `superdot-tts-core.js`: 슈퍼닷 TTS 폴백 구현
+- `tts.js`: 음성 코어 로더 (호스트의 `/tts.js`가 있으면 그쪽 `TW_TTS`에 자리를 넘김)
+- `superdot-tts-core.js`: 슈퍼닷 TTS 구현
 - `dotpad-sdk/DotPadSDK-3.0.0.js`: DotPad SDK
 - `assets/intro-bg.webp`, `assets/intro-bg-mobile.webp`: 인트로 배경 이미지
 - `assets/board-frame.webp`: 보드를 감싸는 닷패드 베젤
