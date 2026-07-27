@@ -6,8 +6,8 @@ on top, so text stays selectable, translatable and screen-reader accessible.
 
 | File | Used by | Notes |
 |---|---|---|
-| `intro-bg.webp` | intro screen, landscape | 1672×941. Embossed pin field with a centred braille glyph; copy sits over it with a gradient + vignette scrim. |
-| `intro-bg-mobile.webp` | intro screen, `max-width:820px` | 1080×1350 portrait crop of the same plate. |
+| `intro-bg.webp` | intro screen, landscape | 1672×941. Dark embossed pin field with a quiet circular centre area and scattered glowing block pieces; copy sits over it with a gradient + vignette scrim. |
+| `intro-bg-mobile.webp` | intro screen, `max-width:820px` | 1080×1350 portrait crop of the same plate, centred on the empty stage area. |
 | `board-frame.webp` | the board shell on the play screen | 473×889. The DotPad bezel, cropped from the original play plate. |
 | `items/*.svg` | special-item symbols | Transparent, scalable. Not yet surfaced in play. |
 
