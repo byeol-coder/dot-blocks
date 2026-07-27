@@ -219,15 +219,16 @@
   .portrait-badge[data-scan="1"]{border-color:rgb(255 91 34 / 45%);color:#ffc3a6}
 
   .tray{display:grid;gap:7px}
-  .tray-btn{width:100%;min-height:52px;display:grid;grid-template-columns:40px 1fr;align-items:center;text-align:left;
-    padding:7px 9px;gap:10px;border-radius:12px}
+  .tray-btn{width:100%;min-height:66px;display:grid;grid-template-columns:60px minmax(0,1fr);align-items:center;text-align:left;
+    padding:7px 10px;gap:12px;border-radius:12px;overflow:hidden}
   .tray-btn:hover:not(:disabled){transform:translateY(-1px);border-color:rgb(255 255 255 / 23%);background-color:rgb(255 255 255 / 11%)}
   .tray-btn:active:not(:disabled){transform:none}
   .tray-btn[aria-current="true"]{border-color:rgb(255 91 34 / 55%);background:rgb(255 91 34 / 14%)}
   .tray-btn:disabled{opacity:.32;cursor:not-allowed}
-  .tray-mini{height:38px;display:grid;place-items:center}
-  .tray-name{font-size:12px;font-weight:800}
-  .tray-hint{display:block;margin-top:3px;font-size:10px;font-weight:600;color:var(--ink-muted)}
+  .tray-mini{width:60px;height:54px;display:grid;place-items:center;overflow:hidden}
+  .tray-btn>span:last-child{min-width:0}
+  .tray-name{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:800}
+  .tray-hint{display:block;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-weight:600;color:var(--ink-muted)}
   .pin-preview-toggle{width:100%;margin-top:4px;padding-inline:12px;color:#c6cbd2;font-size:12px}
 
   .helptext{font-size:12px;font-weight:500;line-height:1.65;color:var(--ink-secondary)}
@@ -373,7 +374,8 @@
     .game-panel{grid-column:1 / -1;grid-row:2;justify-self:center;width:100%;min-height:0}
     #trayCard{grid-column:1 / -1;grid-row:3}
     .tray{grid-template-columns:repeat(3,1fr);gap:6px}
-    .tray-btn{display:block;text-align:center;min-height:48px;padding:6px}
+    .tray-btn{display:block;text-align:center;min-height:64px;padding:6px}
+    .tray-mini{width:100%;height:52px}
     .tray-btn .tray-name,.tray-btn .tray-hint{display:none}
     .play-help{margin-top:5px;margin-bottom:6px}
     .controls{gap:6px;flex-wrap:nowrap;width:100%}
@@ -530,6 +532,10 @@
 <script>
 (function(){
   'use strict';
+
+  if(window.parent===window&&window.SUPERDOT_TTS&&SUPERDOT_TTS.config){
+    SUPERDOT_TTS.config({serverFirst:false,retry:false});
+  }
 
   const PORTRAIT_W=40,PORTRAIT_H=60,HW_W=60,HW_H=40;
   const DROP_W=10,DROP_H=20,PUZZLE_W=8,PUZZLE_H=12;
