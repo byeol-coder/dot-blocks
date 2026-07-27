@@ -5,141 +5,369 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>닷 블록스 · DOT BLOCKS</title>
 <style>
+  /* ── DOT BLOCKS ────────────────────────────────────────────────────────
+     Screen architecture per spec: each screen is a vertical flex column —
+     status pinned top, .play-area takes the remaining space and centres the
+     board, help + controls pinned bottom. Backgrounds live on their own
+     .screen-bg layer so the board never has to fight the artwork.
+     The play artwork's bezel is cropped out to assets/board-frame.webp and
+     used as the board shell itself, so it registers with the canvas at every
+     size instead of drifting behind it. ──────────────────────────────── */
   :root{
-    --accent:#ff5b2e;--accent2:#ffb347;--ink:#f7f7fb;--muted:#b8bdd0;
-    --panel:rgba(15,17,31,.9);--line:rgba(255,255,255,.16);--ok:#43d17d;--danger:#ff5d6c;
-    /* Primary CTA gradient (was drifting between #0f9cff/#315dff, #139cff/#425cff, #129cff/#315eff) */
-    --cta-1:#0a86dd;--cta-2:#315dff;--cta-glow:rgba(24,112,255,.34);
-    /* Play-screen chrome (was repeated as raw rgba() across topbar/status/controls/sidecard) */
-    --panel-deep:rgba(5,13,28,.86);--panel-deep-2:rgba(4,12,26,.84);--line-blue:rgba(104,181,255,.25);--line-blue-soft:rgba(97,181,255,.2);
+    --accent:#ff5b22;--accent-hover:#ff7545;
+    --ink:#f5f7fa;--ink-secondary:#aeb4bd;--ink-muted:#747b86;
+    --surface:#08090b;--surface-panel:rgb(11 13 16 / 84%);
+    --focus:#ffc928;--ok:#5bd47c;--danger:#ff5d6c;
+    /* Spec sets #fff on the accent fill, but that is 3.1:1. The accent itself
+       is 6.4:1 on the surface, so the label goes dark and the hue is kept. */
+    --on-accent:#140801;
+    --board-frame-aspect:473 / 889;
     --ease:cubic-bezier(.2,.7,.3,1);--ease-out:cubic-bezier(.16,1,.3,1);
   }
   *{box-sizing:border-box}
   [hidden]{display:none!important}
-  html,body{margin:0;width:100%;height:100%}
-  body{font-family:"Apple SD Gothic Neo","Pretendard","Noto Sans KR",system-ui,sans-serif;background:#090b15;color:var(--ink);overflow:hidden;-webkit-font-smoothing:antialiased}
+  html,body{width:100%;height:100%;margin:0}
+  body{overflow:hidden;background:var(--surface);color:var(--ink);
+    font-family:"Wanted Sans Variable","Wanted Sans","Pretendard","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased}
   button,select,input{font:inherit}
   button{touch-action:manipulation}
-  .stage{position:fixed;inset:0;display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;gap:10px;padding:12px 14px 14px;background:
-    radial-gradient(circle at 20% 12%,rgba(255,91,46,.18),transparent 28%),
-    radial-gradient(circle at 84% 85%,rgba(86,116,255,.18),transparent 30%),
-    linear-gradient(150deg,#11142a 0%,#090b15 52%,#151020 100%)}
-  .topbar,.status,.controls,.sidecard{border:1px solid var(--line);background:var(--panel);box-shadow:0 16px 45px rgba(0,0,0,.35);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
-  .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;border-radius:18px;padding:9px 12px;min-height:52px}
-  .brand{display:flex;align-items:center;gap:10px;min-width:0}
-  .brandmark{width:34px;height:34px;border-radius:11px;display:grid;grid-template-columns:repeat(3,1fr);gap:3px;padding:6px;background:linear-gradient(145deg,var(--accent),#ff8a2f);box-shadow:0 7px 22px rgba(255,91,46,.3)}
-  .brandmark i{display:block;border-radius:50%;background:#fff}.brandmark i:nth-child(2),.brandmark i:nth-child(6),.brandmark i:nth-child(8){opacity:.35}
-  .brandtext{min-width:0}.brandtext strong{display:flex;gap:7px;align-items:center;font-size:16px;letter-spacing:.02em}.brandtext strong em{font-style:normal;font-size:9px;padding:4px 6px;border-radius:999px;background:rgba(67,209,125,.16);color:#8df0b5;border:1px solid rgba(67,209,125,.3)}.brandtext span{display:block;color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .mode-tabs{display:flex;gap:6px;padding:4px;border-radius:14px;background:rgba(255,255,255,.06)}
-  .mode-btn{border:0;border-radius:10px;padding:8px 12px;background:transparent;color:var(--muted);font-weight:850;cursor:pointer;white-space:nowrap}
-  .mode-btn[aria-selected="true"]{background:#fff;color:#151728;box-shadow:0 5px 18px rgba(0,0,0,.25)}
-  .status{border-radius:15px;padding:8px 14px;min-height:42px;display:flex;align-items:center;justify-content:center;gap:9px;font-size:clamp(13px,2vmin,17px);font-weight:800;text-align:center}
-  .status-dot{width:10px;height:10px;border-radius:50%;background:var(--accent2);box-shadow:0 0 14px currentColor;flex:0 0 auto}.status[data-phase="play"] .status-dot{background:var(--ok)}.status[data-phase="danger"] .status-dot,.status[data-phase="over"] .status-dot{background:var(--danger)}
-  .status[data-phase="danger"]{border-color:rgba(255,93,108,.55);box-shadow:0 0 0 1px rgba(255,93,108,.15),0 16px 45px rgba(0,0,0,.35)}
-  .game-shell{min-height:0;display:grid;grid-template-columns:minmax(165px,235px) minmax(220px,420px) minmax(175px,245px);justify-content:center;align-items:stretch;gap:12px}
-  .side{display:flex;flex-direction:column;gap:10px;min-height:0;overflow:auto;scrollbar-width:thin}
-  .sidecard{border-radius:17px;padding:13px;min-height:0}.sidecard h2{font-size:12px;letter-spacing:.12em;color:#d8dbea;margin:0 0 10px;text-transform:uppercase}.sidecard.grow{flex:1}
-  .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}.stat{padding:10px;border-radius:12px;background:rgba(255,255,255,.055)}.stat span{display:block;color:var(--muted);font-size:11px}.stat b{display:block;margin-top:2px;font-size:21px;color:#fff}
-  .next-grid{display:grid;place-items:center;min-height:72px}.mini{display:grid;gap:3px}.mini-cell{width:17px;height:17px;border-radius:4px;background:rgba(255,255,255,.06)}.mini-cell.on{background:linear-gradient(145deg,#ff8f40,var(--accent));box-shadow:0 0 12px rgba(255,91,46,.34)}
-  .hold-meta{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:10px;margin-top:6px}.hold-meta b{color:#fff}
-  .orientation{font-size:12px;color:var(--muted);line-height:1.55}.orientation strong{color:#fff}.orientation-diagram{height:78px;margin-top:8px;display:grid;place-items:center}.pad-shape{width:48px;height:72px;border:2px solid rgba(255,255,255,.7);border-radius:9px;position:relative;background:radial-gradient(circle,rgba(255,255,255,.7) 0 1px,transparent 1.4px) 0 0/7px 7px}.pad-shape::after{content:"";position:absolute;left:50%;bottom:-9px;width:24px;height:5px;border-radius:4px;background:var(--accent);transform:translateX(-50%)}
-  .legend{display:grid;grid-template-columns:auto 1fr;gap:7px 8px;align-items:center;font-size:11px;color:var(--muted)}.legend-sample{width:28px;height:20px;border-radius:5px;border:1px solid rgba(255,255,255,.2);background:#171a25;display:grid;place-items:center}.legend-sample::before{content:"";width:18px;height:10px;border-radius:2px}.legend-sample.solid::before{background:repeating-linear-gradient(90deg,#fff 0 3px,transparent 3px 5px)}.legend-sample.outline::before{border:2px solid #fff}.legend-sample.ghost::before{width:8px;height:4px;background:#fff;border-radius:999px}
-  .game-panel{min-height:0;display:flex;align-items:center;justify-content:center;position:relative}
-  .canvas-wrap{height:100%;max-height:calc(100vh - 218px);aspect-ratio:1/2;max-width:100%;position:relative;border-radius:22px;padding:9px;background:linear-gradient(160deg,rgba(255,255,255,.18),rgba(255,255,255,.04));box-shadow:0 24px 70px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.12)}
-  #board{display:block;width:100%;height:100%;border-radius:14px;background:#080a12;touch-action:none}
-  .portrait-badge{position:absolute;top:16px;left:50%;transform:translateX(-50%);z-index:4;padding:5px 9px;border-radius:999px;background:rgba(5,7,14,.76);border:1px solid rgba(255,255,255,.18);font-size:10px;font-weight:900;letter-spacing:.08em;color:#e9ebf4;pointer-events:none}.portrait-badge[data-scan="1"]{background:#fff;color:#11152a;border-color:#fff}
-  .tray{display:grid;gap:8px}.tray-btn{width:100%;min-height:66px;border:1px solid rgba(255,255,255,.12);border-radius:13px;background:rgba(255,255,255,.045);color:#fff;cursor:pointer;display:grid;grid-template-columns:54px 1fr;align-items:center;text-align:left;padding:8px;gap:8px;transition:border-color .16s var(--ease),background .16s var(--ease),box-shadow .16s var(--ease),transform .12s var(--ease)}.tray-btn:hover:not(:disabled){background:rgba(255,255,255,.08)}.tray-btn:active:not(:disabled){transform:scale(.98)}.tray-btn[aria-current="true"]{border-color:var(--accent2);box-shadow:0 0 0 2px rgba(255,179,71,.2);background:rgba(255,179,71,.08)}.tray-btn:disabled{opacity:.28;cursor:not-allowed}.tray-mini{height:46px;display:grid;place-items:center}.tray-name{font-size:12px;font-weight:850}.tray-hint{display:block;color:var(--muted);font-size:10px;margin-top:3px}
-  .helptext{font-size:11px;line-height:1.56;color:var(--muted)}.helptext b{color:#fff}.key{display:inline-grid;place-items:center;min-width:22px;height:21px;padding:0 6px;border-radius:6px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.12);color:#fff;font-size:10px;font-weight:900}
-  .toggle-list{display:grid;gap:7px}.toggle{width:100%;border:1px solid rgba(255,255,255,.12);border-radius:11px;background:rgba(255,255,255,.05);color:#fff;display:flex;justify-content:space-between;align-items:center;padding:8px 10px;cursor:pointer;font-weight:800;font-size:11px;transition:border-color .16s var(--ease),background .16s var(--ease)}.toggle:hover{background:rgba(255,255,255,.09)}.toggle span:last-child{color:var(--muted);transition:color .16s var(--ease)}.toggle[aria-pressed="true"]{border-color:rgba(67,209,125,.42);background:rgba(67,209,125,.1)}.toggle[aria-pressed="true"] span:last-child{color:#8df0b5}
-  .speed-row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px;font-size:11px;color:var(--muted)}.speed-row select{border:1px solid rgba(255,255,255,.14);border-radius:9px;background:#191c2b;color:#fff;padding:6px 8px}
-  .controls{border-radius:18px;padding:9px 10px;display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap}
-  .btn{border:0;border-radius:12px;min-height:44px;padding:9px 12px;background:rgba(255,255,255,.1);color:#fff;font-weight:850;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:background .16s var(--ease),transform .12s var(--ease),box-shadow .16s var(--ease)}.btn:hover{background:rgba(255,255,255,.16);transform:translateY(-1px)}.btn:active{transform:translateY(0) scale(.97)}.btn.primary{background:var(--accent);box-shadow:0 9px 22px rgba(255,91,46,.28)}.btn.dp[data-on="1"]{background:#168f55}.btn.icon{width:44px;padding:0}.btn[aria-pressed="true"].scan{background:#fff;color:#151728}.ti{width:18px;height:18px;display:block}
-  .pinwrap{position:fixed;right:14px;bottom:72px;z-index:10;width:154px;border-radius:14px;padding:9px;background:rgba(255,255,255,.96);box-shadow:0 16px 40px rgba(0,0,0,.35);display:none}.pinwrap.show{display:block}.pinwrap canvas{display:block;width:136px;height:204px;background:#e6e1d8;border-radius:8px}.pinwrap .cap{text-align:center;color:#342f2a;font-size:10px;font-weight:800;margin-top:5px;line-height:1.35}
   .sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
-  body.kbd button:focus-visible,body.kbd select:focus-visible,body.kbd canvas:focus-visible{outline:3px solid #fff;outline-offset:3px}
-  body.embed .stage{padding:8px;gap:7px}.embed .brandtext span,.embed .orientation-diagram{display:none}.embed .topbar{min-height:46px}.embed .canvas-wrap{max-height:calc(100vh - 185px)}
-  @media(max-width:900px){.game-shell{grid-template-columns:minmax(0,1fr) minmax(210px,335px)}.side.left{display:none}.game-shell .side.right{order:3}.canvas-wrap{max-height:calc(100vh - 220px)}}
-  @media(max-width:640px){body{overflow:auto}.stage{position:relative;min-height:100%;height:auto;grid-template-rows:auto auto auto auto}.topbar{align-items:flex-start;flex-direction:column}.mode-tabs{width:100%}.mode-btn{flex:1}.game-shell{display:flex;flex-direction:column;align-items:center}.game-panel{width:100%;height:min(64vh,650px)}.canvas-wrap{max-height:none;height:100%}.side.right{width:100%;display:flex;flex-direction:column}.sidecard.grow{grid-column:auto}.pinwrap{bottom:12px}.controls{position:sticky;bottom:8px;z-index:8}.brandtext span{white-space:normal}.status{font-size:13px}.btn .mobile-hide{display:none}}
-  @media(max-height:720px) and (min-width:641px){.stage{gap:6px;padding:7px 10px}.topbar{min-height:44px;padding:6px 10px}.status{min-height:34px;padding:5px 10px}.canvas-wrap{max-height:calc(100vh - 168px)}.sidecard{padding:9px}.orientation-diagram{display:none}.controls{padding:6px}.btn{min-height:34px;padding:7px 10px}}
-  @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important;animation:none!important}.status-dot{animation:none!important}}
+  body.kbd button:focus-visible,body.kbd select:focus-visible,body.kbd canvas:focus-visible{outline:3px solid var(--focus);outline-offset:3px}
 
+  .intro-screen,.stage{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;
+    min-width:0;min-height:0;overflow:hidden;isolation:isolate;gap:0;
+    padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))}
+  .screen-bg{position:absolute;inset:0;z-index:-3;background-position:center;background-repeat:no-repeat;background-size:cover}
 
-  /* Screen architecture: intro → play → pause/result. Live text and controls stay HTML/CSS. */
-  body{overflow:hidden;background:#050913}
-  .intro-screen{position:fixed;inset:0;z-index:50;display:grid;grid-template-rows:auto 1fr;background:#07101f url('./assets/intro-bg.webp') center/cover no-repeat;color:#fff;overflow:auto}
-  .intro-screen::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(3,8,18,.94) 0%,rgba(3,8,18,.78) 42%,rgba(3,8,18,.18) 72%,rgba(3,8,18,.52) 100%),linear-gradient(0deg,rgba(3,8,18,.92),transparent 45%);pointer-events:none}
-  .intro-top,.intro-main{position:relative;z-index:1}
-  .intro-top{display:flex;justify-content:space-between;align-items:center;padding:26px clamp(22px,5vw,76px)}
-  .intro-brand{display:flex;align-items:center;gap:12px;font-weight:950;letter-spacing:.04em}.intro-brand .brandmark{width:40px;height:40px}.intro-kicker{font-size:12px;color:#b9c7df;font-weight:800;letter-spacing:.12em}
-  .intro-main{display:flex;align-items:center;padding:28px clamp(22px,5vw,76px) 64px;min-height:0}
-  .intro-copy{width:min(720px,100%)}
-  .eyebrow{display:inline-flex;align-items:center;gap:8px;margin:0 0 16px;padding:7px 11px;border:1px solid rgba(123,190,255,.35);border-radius:999px;background:rgba(8,25,53,.65);font-size:12px;font-weight:900;color:#baddff;letter-spacing:.08em}
-  .intro-copy h1{margin:0;line-height:.94;letter-spacing:-.055em;text-wrap:balance}
-  .intro-copy h1 .t-en{display:block;font-size:clamp(40px,6.4vw,76px);font-weight:950;letter-spacing:-.02em}
-  .intro-copy h1 .t-ko{display:block;margin-top:8px;font-size:clamp(20px,2.6vw,32px);font-weight:800;letter-spacing:-.02em;color:#8fd6ff;text-shadow:0 0 24px rgba(49,160,255,.34)}
-  .intro-tagline{margin:16px 0 0;font-size:clamp(15px,1.8vw,20px);color:#c8d3e6;font-weight:700;letter-spacing:-.01em}
-  .intro-desc{max-width:620px;margin:22px 0 26px;color:#c8d3e6;font-size:clamp(16px,2vw,20px);line-height:1.65}
-  .mode-choice{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;max-width:660px}
-  .mode-card{position:relative;min-height:154px;border:1px solid rgba(159,197,255,.24);border-radius:22px;padding:18px;background:linear-gradient(155deg,rgba(13,31,62,.9),rgba(6,14,30,.92));color:#fff;text-align:left;cursor:pointer;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,.24);transition:border-color .22s var(--ease),background .22s var(--ease),transform .22s var(--ease-out),box-shadow .22s var(--ease)}.mode-card:hover{border-color:rgba(159,197,255,.42)}.mode-card:active{transform:scale(.99)}
-  .mode-card::after{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 1px transparent;pointer-events:none}.mode-card[aria-selected="true"]{border-color:#65caff;background:linear-gradient(155deg,rgba(15,58,108,.95),rgba(6,23,50,.95));transform:translateY(-2px);box-shadow:0 18px 55px rgba(0,92,190,.28)}.mode-card[aria-selected="true"]::after{box-shadow:inset 0 0 0 2px rgba(101,202,255,.2)}
-  .mode-card strong{display:block;margin-top:10px;font-size:19px}.mode-card small{display:block;margin-top:5px;color:#afbdd2;font-size:13px;line-height:1.45}.mode-card .mode-tag{position:absolute;right:14px;top:14px;font-size:10px;font-weight:900;color:#9bd8ff;border:1px solid rgba(101,202,255,.3);border-radius:999px;padding:5px 7px;background:rgba(8,25,53,.68)}
-  .css-piece{display:block;position:relative;width:92px;height:58px;filter:drop-shadow(0 8px 16px rgba(0,0,0,.35))}.css-piece i{position:absolute;width:26px;height:26px;border-radius:7px;border:1px solid rgba(255,255,255,.4);background:linear-gradient(145deg,#63dcff 0%,#148cff 55%,#0750b8 100%);box-shadow:inset 0 2px 2px rgba(255,255,255,.3),inset 0 -3px 5px rgba(0,0,0,.24)}
-  .css-piece.drop i:nth-child(1){left:0;top:28px}.css-piece.drop i:nth-child(2){left:28px;top:28px}.css-piece.drop i:nth-child(3){left:56px;top:28px}.css-piece.drop i:nth-child(4){left:28px;top:0}.css-piece.puzzle i{background:linear-gradient(145deg,#ffcb55,#ff7a16 60%,#b93d00)}.css-piece.puzzle i:nth-child(1){left:0;top:28px}.css-piece.puzzle i:nth-child(2){left:28px;top:28px}.css-piece.puzzle i:nth-child(3){left:56px;top:28px}.css-piece.puzzle i:nth-child(4){left:56px;top:0}
-  .intro-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:18px}.intro-start{min-height:54px;padding:0 24px;border:0;border-radius:15px;background:linear-gradient(135deg,var(--cta-1),var(--cta-2));color:#fff;font-weight:950;font-size:17px;cursor:pointer;box-shadow:0 14px 30px var(--cta-glow);transition:transform .18s var(--ease),box-shadow .18s var(--ease)}.intro-start:hover{transform:translateY(-2px);box-shadow:0 18px 38px var(--cta-glow)}.intro-start:active{transform:translateY(0) scale(.98)}.intro-secondary{min-height:54px;padding:0 18px;border:1px solid rgba(255,255,255,.22);border-radius:15px;background:rgba(5,14,30,.65);color:#fff;font-weight:850;cursor:pointer;transition:background .16s var(--ease),border-color .16s var(--ease),transform .12s var(--ease)}.intro-secondary:hover{background:rgba(5,14,30,.85);border-color:rgba(255,255,255,.36)}.intro-secondary:active{transform:scale(.98)}.intro-access{margin-top:14px;color:#98a8c0;font-size:12px;line-height:1.5}
-  .item-assets{display:flex;align-items:center;gap:9px;margin-top:23px}.item-assets span{color:#8fa0b8;font-size:11px;font-weight:800;margin-right:2px}.item-assets img{width:37px;height:37px;padding:5px;border-radius:11px;background:rgba(8,19,39,.72);border:1px solid rgba(255,255,255,.13)}
+  /* ── Intro ─────────────────────────────────────────────────────────── */
+  .intro-screen{z-index:50;justify-content:flex-start}
+  .intro-screen::before{content:"";position:absolute;inset:0;z-index:-2;pointer-events:none;
+    background:radial-gradient(circle at 50% 43%,rgb(255 255 255 / 5%) 0,transparent 35%),
+               radial-gradient(circle at 50% 50%,transparent 25%,rgb(0 0 0 / 52%) 100%)}
+  .intro-bg{background-image:linear-gradient(180deg,rgb(0 0 0 / 6%),rgb(0 0 0 / 35%)),url("./assets/intro-bg.webp")}
 
-  .stage{background:#040a15 url('./assets/play-bg.webp') center/cover no-repeat;grid-template-rows:auto auto minmax(0,1fr) auto;padding:10px 14px 13px;gap:8px}.stage::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(1,6,14,.72) 0%,rgba(1,6,14,.52) 34%,rgba(1,6,14,.58) 100%);pointer-events:none}.stage>*{position:relative;z-index:1}
-  .topbar{min-height:50px;padding:7px 10px;border-radius:16px;background:var(--panel-deep);border-color:var(--line-blue)}
-  .topbar .brandmark{width:32px;height:32px;border-radius:10px;background:linear-gradient(145deg,var(--cta-1),var(--cta-2))}.brandtext strong{font-size:14px}.brandtext span{font-size:10px}.playbar-actions{display:flex;align-items:center;gap:7px}.home-btn,.menu-btn{width:44px;height:44px;padding:0;border:1px solid rgba(255,255,255,.14);border-radius:12px;background:rgba(255,255,255,.07);color:#fff;display:grid;place-items:center;cursor:pointer;transition:background .16s var(--ease),transform .12s var(--ease)}.home-btn:hover,.menu-btn:hover{background:rgba(255,255,255,.14);transform:translateY(-1px)}.home-btn:active,.menu-btn:active{transform:translateY(0) scale(.94)}.home-btn svg,.menu-btn svg{width:19px;height:19px}
-  .status{min-height:36px;padding:5px 12px;border-radius:13px;background:rgba(5,13,28,.78);font-size:13px;box-shadow:none}
-  .game-shell{grid-template-columns:minmax(142px,200px) minmax(250px,420px) minmax(145px,205px);gap:10px;align-items:stretch}.stage[data-mode="drop"] .game-shell{grid-template-columns:minmax(142px,200px) minmax(280px,440px)}.stage[data-mode="drop"] .side.right{display:none}.side{overflow:visible}.side.left,.side.right{display:flex}.sidecard{padding:11px;border-radius:15px;background:var(--panel-deep-2);border-color:var(--line-blue-soft);box-shadow:0 14px 35px rgba(0,0,0,.3)}.sidecard h2{margin-bottom:8px;font-size:10px}.stats{grid-template-columns:1fr 1fr;gap:6px}.stat{padding:8px}.stat b{font-size:18px}.next-grid{min-height:58px}.hold-meta{display:none}
-  .game-panel{align-items:center;height:100%}.side.left,.side.right{justify-content:center}.canvas-wrap{max-height:calc(100vh - 174px);border-radius:25px;padding:10px;background:linear-gradient(155deg,rgba(55,154,255,.42),rgba(5,12,26,.82));box-shadow:0 25px 75px rgba(0,0,0,.58),0 0 40px rgba(30,127,255,.18)}#board{border-radius:16px;box-shadow:inset 0 0 0 1px rgba(139,200,255,.16)}
-  .tray{gap:7px}.tray-btn{min-height:58px;grid-template-columns:45px 1fr;padding:6px}.tray-name{font-size:11px}.tray-hint{font-size:9px}
-  .controls{min-height:52px;border-radius:16px;padding:7px;background:rgba(5,13,28,.88);border-color:rgba(100,182,255,.24)}.controls .btn{min-height:44px}.controls #newBtn,.controls #helpBtn,.controls #orientationBtn,.controls #pinToggle{display:none}
-  .drawer-backdrop{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.55);backdrop-filter:blur(4px)}.settings-drawer{position:fixed;z-index:31;right:0;top:0;bottom:0;width:min(390px,92vw);padding:18px;background:linear-gradient(rgba(6,12,26,.93),rgba(6,12,26,.93)),#091225 url('./assets/panel-bg.webp') center/cover no-repeat;border-left:1px solid rgba(104,181,255,.28);box-shadow:-25px 0 70px rgba(0,0,0,.55);overflow:auto}.drawer-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}.drawer-head h2{margin:0;font-size:19px}.drawer-close{width:44px;height:44px;border:1px solid rgba(255,255,255,.14);border-radius:12px;background:rgba(255,255,255,.07);color:#fff;font-size:20px;cursor:pointer;transition:background .16s var(--ease),transform .12s var(--ease)}.drawer-close:hover{background:rgba(255,255,255,.14);transform:rotate(90deg)}.drawer-close:active{transform:rotate(90deg) scale(.9)}.drawer-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}.drawer-actions .btn{width:100%}.settings-drawer .sidecard{margin-top:9px;box-shadow:none}.settings-drawer .sidecard.grow{flex:none}
-  .screen-overlay{position:fixed;inset:0;z-index:25;display:grid;place-items:center;padding:24px;background:linear-gradient(rgba(0,5,14,.82),rgba(0,5,14,.82)),#00050e url('./assets/panel-bg.webp') center/cover no-repeat;backdrop-filter:blur(10px)}.overlay-card{width:min(420px,100%);padding:28px;border:1px solid rgba(110,193,255,.28);border-radius:25px;background:linear-gradient(155deg,rgba(10,29,58,.98),rgba(5,12,27,.98));box-shadow:0 30px 90px rgba(0,0,0,.58);text-align:center}.overlay-icon{width:70px;height:70px;margin:0 auto 14px;display:grid;place-items:center;border-radius:22px;background:rgba(43,151,255,.14);border:1px solid rgba(95,189,255,.28);color:#7cd0ff}.overlay-icon svg{width:32px;height:32px}.overlay-card h2{margin:0;font-size:28px}.overlay-card p{margin:10px 0 20px;color:#b9c7dc;line-height:1.55}.result-score{font-size:46px;font-weight:950;color:#6bcaff;margin:6px 0}.overlay-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}.overlay-actions .btn{min-height:50px}.overlay-actions .primary{background:linear-gradient(135deg,var(--cta-1),var(--cta-2))}
-  .pinwrap{z-index:40}
+  .intro-top{flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;padding:2px 6px 0;border:0}
+  .intro-brand{display:inline-flex;align-items:center;gap:10px;font-size:13px;font-weight:800;letter-spacing:.14em;color:var(--ink)}
+  .intro-kicker{font-size:11px;font-weight:700;letter-spacing:.14em;color:var(--ink-muted)}
+  .brandmark{width:24px;height:24px;display:grid;grid-template-columns:repeat(3,1fr);gap:3px;padding:0;background:none;border-radius:0;box-shadow:none}
+  .brandmark i{display:block;border-radius:50%;background:var(--ink)}
+  .brandmark i:nth-child(2),.brandmark i:nth-child(6),.brandmark i:nth-child(8){background:rgb(255 255 255 / 22%)}
 
-  /* Screen-entrance motion. [hidden] uses display:none, so these animations replay
-     naturally each time a screen becomes visible again — no JS changes needed. */
-  @keyframes screenFadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-  @keyframes drawerSlideIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:translateX(0)}}
+  .intro-main{flex:1 1 auto;min-height:0;width:100%;display:flex;align-items:center;justify-content:center;padding:0}
+  .intro-copy{width:min(680px,calc(100% - 32px));padding:clamp(20px,4vh,44px) 24px;text-align:center;transform:translateY(-2vh);
+    display:flex;flex-direction:column;align-items:center}
+  .eyebrow{margin:0 0 14px;padding:0;border:0;background:none;color:var(--accent);
+    font-size:clamp(11px,1.4vmin,14px);font-weight:800;line-height:1.3;letter-spacing:.2em}
+  .intro-copy h1{display:flex;flex-direction:column;align-items:center;gap:8px;margin:0}
+  .intro-copy h1 .t-en{font-size:clamp(48px,9vmin,104px);font-weight:900;line-height:.9;letter-spacing:-.055em;color:#fff;
+    text-shadow:0 2px 0 rgb(255 255 255 / 10%),0 10px 36px rgb(0 0 0 / 70%)}
+  .intro-copy h1 .t-ko{margin:0;font-size:clamp(16px,2.2vmin,22px);font-weight:650;line-height:1.4;letter-spacing:.18em;color:var(--ink-secondary);text-shadow:none}
+  .intro-tagline{margin:clamp(18px,3vh,28px) 0 0;padding:0;border:0;background:none;box-shadow:none;
+    color:var(--ink-secondary);font-size:clamp(15px,2vmin,19px);font-weight:500;line-height:1.65}
+  .intro-desc{max-width:none;margin:6px 0 0;color:var(--ink-muted);font-size:clamp(13px,1.7vmin,15px);font-weight:500;line-height:1.6}
+
+  .mode-choice{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;width:100%;max-width:520px;margin-top:clamp(20px,3.4vh,30px)}
+  .mode-card{position:relative;min-height:0;display:flex;flex-direction:column;align-items:center;overflow:hidden;cursor:pointer;
+    padding:15px 13px 16px;border:1px solid rgb(255 255 255 / 11%);border-radius:14px;background:rgb(255 255 255 / 7%);color:var(--ink);text-align:center;
+    box-shadow:inset 0 1px 0 rgb(255 255 255 / 4%);transition:transform 140ms ease,background-color 140ms ease,border-color 140ms ease}
+  .mode-card:hover{transform:translateY(-1px);border-color:rgb(255 255 255 / 23%);background-color:rgb(255 255 255 / 11%)}
+  .mode-card::after{display:none}
+  .mode-card[aria-selected="true"]{border-color:rgb(255 91 34 / 55%);background:rgb(255 91 34 / 14%);transform:none;
+    box-shadow:inset 0 1px 0 rgb(255 255 255 / 8%),0 8px 22px -12px rgb(255 91 34 / 60%)}
+  .mode-card .mode-tag{position:static;order:-1;margin-bottom:9px;padding:0;border:0;border-radius:0;background:none;
+    font-size:10px;font-weight:800;letter-spacing:.16em;color:var(--ink-muted)}
+  .mode-card[aria-selected="true"] .mode-tag{color:var(--accent)}
+  .mode-card strong{display:block;margin-top:11px;font-size:15px;font-weight:800;letter-spacing:-.01em}
+  .mode-card small{display:block;margin-top:5px;font-size:12px;font-weight:500;line-height:1.5;color:var(--ink-secondary)}
+  .css-piece{display:block;position:relative;width:57px;height:36px;filter:drop-shadow(0 4px 10px rgb(0 0 0 / 55%))}
+  .css-piece i{position:absolute;width:16px;height:16px;border-radius:4px;border:0;background:rgb(255 255 255 / 30%);box-shadow:none;transition:background 140ms ease}
+  .mode-card[aria-selected="true"] .css-piece i{background:var(--accent)}
+  .css-piece.drop i:nth-child(1){left:0;top:18px}.css-piece.drop i:nth-child(2){left:18px;top:18px}.css-piece.drop i:nth-child(3){left:36px;top:18px}.css-piece.drop i:nth-child(4){left:18px;top:0}
+  .css-piece.puzzle i{background:rgb(255 255 255 / 30%)}
+  .css-piece.puzzle i:nth-child(1){left:0;top:18px}.css-piece.puzzle i:nth-child(2){left:18px;top:18px}.css-piece.puzzle i:nth-child(3){left:36px;top:18px}.css-piece.puzzle i:nth-child(4){left:36px;top:0}
+
+  .intro-actions{display:flex;justify-content:center;flex-wrap:wrap;gap:10px;width:100%;margin-top:clamp(24px,4vh,34px)}
+  .intro-access{flex:0 0 auto;max-width:94vw;margin:14px 0 0;padding:7px 16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    border:1px solid rgb(255 255 255 / 7%);border-radius:999px;background:rgb(5 6 8 / 48%);color:var(--ink-muted);
+    font-size:clamp(11px,1.5vmin,13px);font-weight:600}
+  .item-assets{display:none}
+
+  /* ── Buttons ──────────────────────────────────────────────────────── */
+  .btn,.intro-start,.intro-secondary,.home-btn,.menu-btn,.drawer-close,.tray-btn,.toggle,select{
+    min-height:44px;border:1px solid rgb(255 255 255 / 11%);border-radius:12px;background:rgb(255 255 255 / 7%);color:var(--ink);
+    font-weight:750;line-height:1;cursor:pointer;
+    transition:transform 140ms ease,background-color 140ms ease,border-color 140ms ease,box-shadow 140ms ease}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:0 13px;font-size:12px}
+  .btn:hover,.intro-secondary:hover,.home-btn:hover,.menu-btn:hover,.drawer-close:hover{
+    transform:translateY(-1px);border-color:rgb(255 255 255 / 23%);background-color:rgb(255 255 255 / 11%)}
+  .btn:active{transform:translateY(0) scale(.98)}
+  .btn.icon{width:44px;padding:0}
+  .ti{width:18px;height:18px;flex:0 0 auto;display:block}
+  .intro-start,.btn.primary{min-width:176px;border-color:rgb(255 255 255 / 15%);color:var(--on-accent);
+    background:linear-gradient(180deg,rgb(255 255 255 / 15%),transparent 45%),var(--accent);
+    box-shadow:inset 0 1px 0 rgb(255 255 255 / 20%),0 10px 26px rgb(255 91 34 / 24%)}
+  .intro-start{padding:0 22px;font-size:15px;font-weight:800}
+  .intro-start:hover,.btn.primary:hover{transform:translateY(-1px);background-color:var(--accent-hover)}
+  .intro-start:active{transform:translateY(0) scale(.99)}
+  .intro-secondary{min-width:140px;padding:0 18px;font-size:13px}
+  .btn.dp[data-on="1"]{border-color:rgb(91 212 124 / 45%);background:rgb(91 212 124 / 16%);color:#bff3cc}
+  .btn[aria-pressed="true"].scan{border-color:rgb(255 91 34 / 55%);background:rgb(255 91 34 / 18%);color:#ffc3a6}
+  select{appearance:none;-webkit-appearance:none;padding:0 32px 0 12px;font-size:12px;
+    background-image:url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23aeb4bd' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6l6 -6'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 10px center}
+
+  /* ── Play ─────────────────────────────────────────────────────────── */
+  .stage{z-index:1;background:var(--surface)}
+  .stage::before{display:none}
+  .play-bg{background-image:radial-gradient(circle at 50% 46%,rgb(255 255 255 / 4%) 0,transparent 52%),
+    radial-gradient(circle,rgb(255 255 255 / 5%) 0 1.1px,transparent 1.6px);background-size:auto,26px 26px;background-repeat:no-repeat,repeat}
+
+  .topbar{position:relative;z-index:6;flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;
+    width:100%;min-height:0;padding:0 4px 6px;border:0;border-radius:0;background:transparent;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none}
+  .brand{display:flex;align-items:center;gap:10px;min-width:0;padding:0;background:none;box-shadow:none;border-radius:0}
+  .topbar .brandmark{width:20px;height:20px;gap:2px}
+  .brandtext{min-width:0}
+  .brandtext strong{display:flex;gap:8px;align-items:baseline;font-size:13px;font-weight:800;letter-spacing:.1em}
+  .brandtext strong em{font-style:normal;font-size:9.5px;font-weight:800;letter-spacing:.14em;padding:0;border:0;border-radius:0;background:none;color:var(--ink-muted)}
+  .brandtext span{display:block;margin-top:1px;font-size:11px;font-weight:600;color:var(--ink-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .playbar-actions{display:flex;align-items:center;gap:8px}
+  .home-btn,.menu-btn{width:44px;height:44px;padding:0;display:grid;place-items:center}
+  .home-btn svg,.menu-btn svg{width:19px;height:19px}
+
+  .status{position:relative;z-index:5;flex:0 0 auto;display:inline-flex;align-items:center;gap:10px;
+    max-width:94%;min-height:42px;margin-top:2px;padding:8px 17px;overflow:hidden;transform:none;
+    border:1px solid rgb(255 255 255 / 11%);border-radius:999px;background:rgb(8 10 13 / 82%);color:#edf0f4;
+    font-size:clamp(13px,2vmin,17px);font-weight:750;text-align:left;backdrop-filter:none;-webkit-backdrop-filter:none;
+    box-shadow:0 8px 22px rgb(0 0 0 / 35%),inset 0 1px 0 rgb(255 255 255 / 5%)}
+  .status>span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .status-dot{width:9px;height:9px;flex:0 0 auto;border-radius:50%;background:#8a9099;box-shadow:none}
+  .status[data-phase="play"] .status-dot{background:var(--ok);box-shadow:0 0 9px rgb(91 212 124 / 65%)}
+  .status[data-phase="danger"] .status-dot,.status[data-phase="over"] .status-dot{background:var(--danger);box-shadow:0 0 9px rgb(255 93 108 / 65%)}
+  .status[data-phase="danger"]{border-color:rgb(255 93 108 / 40%)}
+
+  /* .play-area — takes the leftover height and centres the board in it */
+  .game-shell{position:relative;flex:1 1 auto;min-height:0;width:100%;display:flex;align-items:center;justify-content:center;
+    padding:8px 0;gap:0;grid-template-columns:none}
+  .play-layout{display:grid;grid-template-columns:minmax(130px,190px) auto minmax(150px,210px);
+    align-items:stretch;justify-content:center;gap:clamp(18px,3.4vw,52px);width:min(1180px,96vw);height:100%;max-height:100%}
+  .side{display:flex;flex-direction:column;gap:12px;min-width:0;min-height:0;overflow:visible;justify-content:center;align-self:center}
+
+  .sidecard{display:flex;flex-direction:column;align-items:stretch;min-width:0;width:auto;padding:16px 14px;
+    border:1px solid rgb(255 255 255 / 7%);border-radius:16px;background:rgb(8 10 13 / 46%);
+    box-shadow:inset 0 1px 0 rgb(255 255 255 / 4%);backdrop-filter:none;-webkit-backdrop-filter:none;min-height:0}
+  .side .sidecard+.sidecard{margin-top:0;padding-top:16px;border-top:1px solid rgb(255 255 255 / 7%)}
+  .sidecard.grow{flex:none}
+  .sidecard h2{margin:0 0 12px;font-size:12px;font-weight:800;line-height:1.3;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-secondary)}
+
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:16px 12px}
+  .stat{display:flex;flex-direction:column;gap:4px;padding:0;border-radius:0;background:none}
+  .stat span{font-size:12px;font-weight:800;line-height:1.3;letter-spacing:.14em;color:var(--ink-secondary)}
+  .stat b{font-size:clamp(20px,2.7vmin,30px);font-weight:850;line-height:1;color:#fff;font-variant-numeric:tabular-nums;
+    text-shadow:0 0 14px rgb(255 255 255 / 12%)}
+
+  .next-grid{display:grid;place-items:center;min-height:78px}
+  .mini{display:grid;gap:3px}
+  .mini-cell{width:16px;height:16px;border-radius:4px;background:transparent;position:relative}
+  .mini-cell::after{content:"";position:absolute;inset:0;margin:auto;width:3px;height:3px;border-radius:50%;background:rgb(255 255 255 / 14%)}
+  .mini-cell.on{background:linear-gradient(180deg,rgb(255 255 255 / 22%),transparent 55%),var(--accent);box-shadow:0 3px 10px -3px rgb(255 91 34 / 70%)}
+  .mini-cell.on::after{display:none}
+  .hold-meta{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-top:12px;font-size:11px;font-weight:700;color:var(--ink-muted)}
+  .hold-meta b{font-weight:800;color:var(--ink-secondary)}
+
+  /* Board — the cropped bezel is the shell, canvas sits in its window */
+  .game-panel{position:relative;min-height:0;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px}
+  .canvas-wrap{position:relative;flex:0 1 auto;height:100%;min-height:0;max-height:100%;max-width:100%;
+    aspect-ratio:var(--board-frame-aspect);
+    padding:7.61% 7.82% 7.82% 8.03%;   /* exact inner window of board-frame.webp */
+    border:0;border-radius:14px;background:url("./assets/board-frame.webp") center/100% 100% no-repeat;
+    box-shadow:0 18px 44px -18px rgb(0 0 0 / 90%);overflow:visible}
+  #board{display:block;width:100%;height:100%;border-radius:2px;background:#0a0c0f;touch-action:none;box-shadow:none}
+  .portrait-badge{position:static;flex:0 0 auto;transform:none;padding:5px 13px;
+    border:1px solid rgb(255 255 255 / 8%);border-radius:999px;background:rgb(8 10 13 / 66%);
+    font-size:11px;font-weight:700;letter-spacing:.14em;color:var(--ink-muted);pointer-events:none;white-space:nowrap}
+  .portrait-badge[data-scan="1"]{border-color:rgb(255 91 34 / 45%);color:#ffc3a6}
+
+  .tray{display:grid;gap:7px}
+  .tray-btn{width:100%;min-height:52px;display:grid;grid-template-columns:40px 1fr;align-items:center;text-align:left;
+    padding:7px 9px;gap:10px;border-radius:12px}
+  .tray-btn:hover:not(:disabled){transform:translateY(-1px);border-color:rgb(255 255 255 / 23%);background-color:rgb(255 255 255 / 11%)}
+  .tray-btn:active:not(:disabled){transform:none}
+  .tray-btn[aria-current="true"]{border-color:rgb(255 91 34 / 55%);background:rgb(255 91 34 / 14%)}
+  .tray-btn:disabled{opacity:.32;cursor:not-allowed}
+  .tray-mini{height:38px;display:grid;place-items:center}
+  .tray-name{font-size:12px;font-weight:800}
+  .tray-hint{display:block;margin-top:3px;font-size:10px;font-weight:600;color:var(--ink-muted)}
+  .pin-preview-toggle{width:100%;margin-top:4px;padding-inline:12px;color:#c6cbd2;font-size:12px}
+
+  .helptext{font-size:12px;font-weight:500;line-height:1.65;color:var(--ink-secondary)}
+  .helptext b{color:var(--ink);font-weight:800}
+  .key{display:inline-grid;place-items:center;min-width:22px;height:21px;padding:0 6px;border-radius:6px;
+    border:1px solid rgb(255 255 255 / 12%);background:rgb(255 255 255 / 7%);color:var(--ink);font-size:10px;font-weight:800}
+  .orientation{font-size:12px;font-weight:500;line-height:1.65;color:var(--ink-secondary)}
+  .orientation strong{color:var(--ink);font-weight:800}
+  .orientation-diagram{height:70px;margin-top:12px;display:grid;place-items:center}
+  .pad-shape{width:42px;height:63px;position:relative;border:1px solid rgb(255 255 255 / 22%);border-radius:7px;background:rgb(255 255 255 / 4%);
+    background-image:radial-gradient(circle,rgb(255 255 255 / 32%) 0 1px,transparent 1.4px);background-size:7px 7px;background-position:4px 4px}
+  .pad-shape::after{content:"";position:absolute;left:50%;bottom:-8px;width:20px;height:4px;border-radius:3px;background:var(--accent);transform:translateX(-50%)}
+  .legend{display:grid;grid-template-columns:auto 1fr;gap:9px 10px;align-items:center;font-size:11.5px;font-weight:500;color:var(--ink-secondary)}
+  .legend-sample{width:27px;height:19px;display:grid;place-items:center;border:1px solid rgb(255 255 255 / 10%);border-radius:5px;background:rgb(255 255 255 / 4%)}
+  .legend-sample::before{content:"";width:16px;height:9px;border-radius:2px}
+  .legend-sample.solid::before{background:#d8dee7}
+  .legend-sample.outline::before{border:2px solid var(--accent)}
+  .legend-sample.ghost::before{width:7px;height:3px;border-radius:999px;background:var(--accent);opacity:.75}
+
+  /* ── Bottom help + controls ───────────────────────────────────────── */
+  .play-help{position:relative;z-index:5;flex:0 0 auto;max-width:94vw;margin-bottom:8px;padding:6px 15px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    border:1px solid rgb(255 255 255 / 8%);border-radius:999px;background:rgb(8 10 13 / 66%);color:#aeb4bc;
+    font-size:clamp(11px,1.7vmin,14px);font-weight:650}
+  .controls{position:relative;z-index:6;flex:0 0 auto;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;
+    max-width:96vw;min-height:0;padding:0;transform:none;border:0;border-radius:0;background:transparent;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none}
+  .controls .btn{min-height:44px;padding-inline:13px;font-size:12px}
+  .controls #newBtn,.controls #helpBtn,.controls #orientationBtn,.controls #pinToggle{display:none}
+
+  /* ── Settings sheet ───────────────────────────────────────────────── */
+  .drawer-backdrop{position:fixed;inset:0;z-index:30;background:rgb(0 0 0 / 62%);backdrop-filter:blur(2px)}
+  .settings-drawer{position:fixed;z-index:31;right:0;top:0;bottom:0;width:min(390px,94vw);padding:0 20px 24px;
+    border:0;border-left:1px solid rgb(255 255 255 / 9%);border-radius:0;background:#0b0d10;
+    box-shadow:-24px 0 60px rgb(0 0 0 / 70%);overflow:auto}
+  .drawer-head{position:sticky;top:0;z-index:1;display:flex;justify-content:space-between;align-items:center;gap:12px;
+    margin:0 0 16px;padding:18px 0 14px;background:#0b0d10;border-bottom:1px solid rgb(255 255 255 / 7%)}
+  .drawer-head h2{margin:0;font-size:17px;font-weight:850;letter-spacing:-.01em}
+  .drawer-close{width:44px;height:44px;display:grid;place-items:center;font-size:19px;line-height:1}
+  .drawer-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px}
+  .drawer-actions .btn{width:100%;min-width:0}
+  .settings-drawer .sidecard{width:auto;margin-top:12px;padding-top:16px;border-top:1px solid rgb(255 255 255 / 7%);box-shadow:none;background:transparent;border-left:0;border-right:0;border-bottom:0;border-radius:0;padding-left:0;padding-right:0}
+  .settings-drawer .sidecard:first-of-type{margin-top:0;padding-top:0;border-top:0}
+
+  .toggle-list{display:grid;gap:7px}
+  .toggle{width:100%;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:0 13px;font-size:12.5px;text-align:left}
+  .toggle+.toggle{border-top:1px solid rgb(255 255 255 / 11%)}
+  .toggle:hover{border-color:rgb(255 255 255 / 23%);background-color:rgb(255 255 255 / 11%)}
+  .toggle span:last-child{font-size:11.5px;font-weight:800;color:var(--ink-muted)}
+  .toggle[aria-pressed="true"]{border-color:rgb(91 212 124 / 40%);background:rgb(91 212 124 / 12%)}
+  .toggle[aria-pressed="true"] span:last-child{color:#8fe6a8}
+  .speed-row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;padding:12px 0 0;border-top:0;font-size:12.5px;font-weight:700;color:var(--ink-secondary)}
+
+  /* ── Overlays ─────────────────────────────────────────────────────── */
+  .screen-overlay{position:fixed;inset:0;z-index:25;display:grid;place-items:center;padding:24px;
+    background:rgb(2 3 4 / 82%);backdrop-filter:blur(3px)}
+  .overlay-card{width:min(380px,100%);padding:30px 26px 26px;text-align:center;
+    border:1px solid rgb(255 255 255 / 10%);border-radius:20px;background:rgb(11 13 16 / 96%);
+    box-shadow:0 30px 80px -30px rgb(0 0 0 / 95%),inset 0 1px 0 rgb(255 255 255 / 6%)}
+  .overlay-icon{width:56px;height:56px;margin:0 auto 16px;display:grid;place-items:center;border-radius:50%;
+    border:1px solid rgb(255 91 34 / 35%);background:rgb(255 91 34 / 14%);color:var(--accent)}
+  .overlay-icon svg{width:26px;height:26px}
+  .overlay-card h2{margin:0;font-size:23px;font-weight:850;letter-spacing:-.02em}
+  .overlay-card p{margin:10px 0 22px;font-size:13px;font-weight:500;line-height:1.6;color:var(--ink-secondary)}
+  .result-score{display:flex;align-items:baseline;justify-content:center;gap:6px;margin:14px 0 0;
+    font-size:52px;font-weight:900;line-height:1;letter-spacing:-.03em;color:var(--accent);text-shadow:0 0 30px rgb(255 91 34 / 35%)}
+  .result-score small{font-size:14px;font-weight:750;color:var(--ink-muted);letter-spacing:0}
+  .overlay-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .overlay-actions .btn{min-height:48px;min-width:0}
+
+  .pinwrap{position:fixed;top:14px;left:14px;z-index:40;width:auto;padding:9px;
+    border:1px solid rgb(255 255 255 / 10%);border-radius:14px;background:rgb(11 13 16 / 94%);box-shadow:0 16px 40px rgb(0 0 0 / 60%);display:none}
+  .pinwrap.show{display:block}
+  .pinwrap canvas{display:block;width:130px;height:195px;border-radius:7px;background:#e8e2d8}
+  .pinwrap .cap{margin-top:6px;text-align:center;font-size:10px;font-weight:650;line-height:1.4;color:var(--ink-muted)}
+
+  /* ── Motion ───────────────────────────────────────────────────────── */
+  @keyframes screenFadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes drawerSlideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
   @keyframes backdropFadeIn{from{opacity:0}to{opacity:1}}
-  @keyframes overlayCardIn{from{opacity:0;transform:translateY(12px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
-  @keyframes dotPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.3)}}
+  @keyframes overlayCardIn{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+  @keyframes dotPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(1.25)}}
   .intro-screen:not([hidden]){animation:screenFadeUp .42s var(--ease-out) both}
-  .stage:not([hidden]){animation:screenFadeUp .38s var(--ease-out) both}
-  .drawer-backdrop:not([hidden]){animation:backdropFadeIn .22s var(--ease) both}
-  .settings-drawer:not([hidden]){animation:drawerSlideIn .28s var(--ease-out) both}
+  .stage:not([hidden]){animation:screenFadeUp .34s var(--ease-out) both}
+  .drawer-backdrop:not([hidden]){animation:backdropFadeIn .2s var(--ease) both}
+  .settings-drawer:not([hidden]){animation:drawerSlideIn .26s var(--ease-out) both}
   .screen-overlay:not([hidden]){animation:backdropFadeIn .2s var(--ease) both}
-  .screen-overlay:not([hidden]) .overlay-card{animation:overlayCardIn .3s var(--ease-out) both}
+  .screen-overlay:not([hidden]) .overlay-card{animation:overlayCardIn .28s var(--ease-out) both}
   .status[data-phase="danger"] .status-dot{animation:dotPulse 1s ease-in-out infinite}
 
-  /* Arcade game-feel: line clear / combo / level-up callouts, impact + shake, HUD pop */
-  .fx-pop{position:absolute;left:50%;top:36%;transform:translate(-50%,-50%);z-index:6;text-align:center;opacity:0;pointer-events:none;white-space:nowrap}
-  .fx-pop .fx-title{display:block;font-size:clamp(22px,4.6vw,36px);font-weight:950;letter-spacing:.03em;color:#fff;text-shadow:0 4px 20px rgba(0,0,0,.65),0 0 24px rgba(97,198,255,.5)}
-  .fx-pop .fx-sub{display:block;margin-top:4px;font-size:clamp(13px,2.2vw,17px);font-weight:850;color:#8fe0ff;text-shadow:0 2px 10px rgba(0,0,0,.6)}
-  .fx-pop.tetris .fx-title{color:#ffd35a;text-shadow:0 4px 20px rgba(0,0,0,.65),0 0 28px rgba(255,190,60,.65)}
+  .fx-pop{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);z-index:6;text-align:center;opacity:0;pointer-events:none;white-space:nowrap}
+  .fx-pop .fx-title{display:block;font-size:clamp(22px,4.4vmin,34px);font-weight:900;letter-spacing:-.02em;color:#fff;
+    text-shadow:0 4px 24px rgb(0 0 0 / 85%),0 0 30px rgb(255 255 255 / 20%)}
+  .fx-pop .fx-sub{display:block;margin-top:5px;font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-secondary);text-shadow:0 2px 12px rgb(0 0 0 / 85%)}
+  .fx-pop.tetris .fx-title{color:var(--accent);text-shadow:0 4px 24px rgb(0 0 0 / 85%),0 0 34px rgb(255 91 34 / 65%)}
   .fx-pop.show{animation:fxPopIn .85s var(--ease-out) both}
-  @keyframes fxPopIn{0%{opacity:0;transform:translate(-50%,-42%) scale(.72)}14%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}26%{transform:translate(-50%,-50%) scale(1)}76%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-63%) scale(1.04)}}
+  @keyframes fxPopIn{0%{opacity:0;transform:translate(-50%,-42%) scale(.78)}16%{opacity:1;transform:translate(-50%,-50%) scale(1.04)}28%{transform:translate(-50%,-50%) scale(1)}76%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-62%) scale(1)}}
   .canvas-wrap.impact{animation:boardImpact .18s var(--ease)}
-  @keyframes boardImpact{0%{transform:scale(1)}45%{transform:scale(.983)}100%{transform:scale(1)}}
+  @keyframes boardImpact{0%{transform:scale(1)}45%{transform:scale(.985)}100%{transform:scale(1)}}
   .canvas-wrap.shake{animation:boardShake .32s var(--ease)}
-  @keyframes boardShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(5px)}60%{transform:translateX(-4px)}80%{transform:translateX(2px)}}
+  @keyframes boardShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}45%{transform:translateX(4px)}70%{transform:translateX(-3px)}}
   .stat b.pop{animation:statPop .34s var(--ease-out)}
-  @keyframes statPop{0%{transform:scale(1)}45%{transform:scale(1.2);color:var(--accent2)}100%{transform:scale(1);color:#fff}}
-  .next-grid.mini-refresh,.tray-mini.mini-refresh{animation:miniPopIn .3s var(--ease-out)}
-  @keyframes miniPopIn{0%{opacity:.2;transform:scale(.8)}100%{opacity:1;transform:scale(1)}}
-  @media(prefers-reduced-motion:reduce){.fx-pop.show{opacity:1}}
+  @keyframes statPop{0%{transform:scale(1)}45%{transform:scale(1.16);color:var(--accent)}100%{transform:scale(1);color:#fff}}
+  .next-grid.mini-refresh,.tray-mini.mini-refresh{animation:miniPopIn .28s var(--ease-out)}
+  @keyframes miniPopIn{0%{opacity:.25;transform:scale(.82)}100%{opacity:1;transform:scale(1)}}
 
-  @media(max-width:900px){.game-shell{grid-template-columns:minmax(120px,170px) minmax(220px,350px)}.side.right{display:none}.canvas-wrap{max-height:calc(100vh - 175px)}}
-  @media(max-width:640px){body{overflow:hidden}.intro-top{padding:18px 18px 8px}.intro-kicker{display:none}.intro-main{align-items:flex-start;padding:8px 18px 24px}.intro-screen{background-image:url('./assets/intro-bg-mobile.webp')}.intro-screen::before{background:linear-gradient(180deg,rgba(3,8,18,.93) 0%,rgba(3,8,18,.80) 42%,rgba(3,8,18,.30) 72%,rgba(3,8,18,.55) 100%)}.intro-copy h1 .t-en{font-size:40px}.intro-copy h1 .t-ko{font-size:19px;margin-top:5px}.intro-tagline{font-size:14px;margin-top:11px}.intro-desc{font-size:13px;margin:9px 0 16px}.mode-choice{gap:8px}.mode-card{min-height:135px;padding:13px}.mode-card strong{font-size:15px}.mode-card small{font-size:11px}.css-piece{transform:scale(.78);transform-origin:left top}.intro-actions{display:grid;grid-template-columns:1fr}.intro-start,.intro-secondary{width:100%}.item-assets{display:none}
-    .stage{position:fixed;inset:0;height:100%;min-height:0;padding:7px;grid-template-rows:auto auto minmax(0,1fr) auto;background-image:url('./assets/play-bg-mobile.webp')}.stage::before{background:linear-gradient(180deg,rgba(1,6,14,.70) 0%,rgba(1,6,14,.62) 30%,rgba(1,6,14,.74) 62%,rgba(1,6,14,.60) 100%)}.topbar{flex-direction:row;align-items:center}.topbar .brandtext span{display:none}.game-shell{display:flex;flex-direction:column;min-height:0}.side.left{width:100%;display:block;order:0}.side.left .sidecard{display:none}.side.left .sidecard:first-child{display:block;padding:6px 8px}.stats{grid-template-columns:repeat(4,1fr)}.stat{padding:5px 6px;text-align:center}.stat b{font-size:15px}.stat span{font-size:9px}.game-panel{width:100%;min-height:0;flex:1;order:1}.canvas-wrap{height:100%;max-height:none}.side.right{display:block;width:100%;order:2}.side.right #trayCard{display:block;padding:6px}.tray{grid-template-columns:repeat(3,1fr)}.tray-btn{display:block;text-align:center;min-height:56px}.tray-btn .tray-name{display:none}.tray-btn .tray-hint{display:none}.controls{position:relative;bottom:auto;z-index:8;flex-wrap:nowrap}.controls .btn{flex:1;min-width:0;padding:8px}.controls .btn .mobile-hide{display:none}.controls #dpBtn span{display:none}.status{font-size:11px}.portrait-badge{top:13px}.overlay-actions{grid-template-columns:1fr}}
+  /* ── Embed & responsive ───────────────────────────────────────────── */
+  body.embed .topbar{padding-bottom:4px}
+  .embed .brandtext span,.embed .orientation-diagram{display:none}
 
+
+  @media(max-width:820px){
+    .intro-bg{background-image:linear-gradient(180deg,rgb(0 0 0 / 10%),rgb(0 0 0 / 45%)),url("./assets/intro-bg-mobile.webp")}
+    .intro-copy{padding:12px 6px;transform:none}
+    .intro-copy h1 .t-en{font-size:clamp(42px,13vw,62px)}
+    .mode-choice{gap:8px;margin-top:18px}
+    .mode-card{padding:12px 10px 13px}
+    .mode-card strong{font-size:13.5px;margin-top:9px}
+    .mode-card small{font-size:11px}
+    .css-piece{width:48px;height:30px}
+    .css-piece i{width:13px;height:13px}
+    .css-piece.drop i:nth-child(1){left:0;top:15px}.css-piece.drop i:nth-child(2){left:15px;top:15px}.css-piece.drop i:nth-child(3){left:30px;top:15px}.css-piece.drop i:nth-child(4){left:15px;top:0}
+    .css-piece.puzzle i:nth-child(1){left:0;top:15px}.css-piece.puzzle i:nth-child(2){left:15px;top:15px}.css-piece.puzzle i:nth-child(3){left:30px;top:15px}.css-piece.puzzle i:nth-child(4){left:30px;top:0}
+    .intro-actions{flex-direction:column;align-items:stretch}
+    .intro-start,.intro-secondary{width:100%;min-width:0}
+
+    .brandtext span{display:none}
+    .status{min-height:36px;padding:6px 13px}
+    /* HUD above the board rather than hidden side rails */
+    .play-layout{grid-template-columns:1fr 1fr;grid-template-rows:auto minmax(0,1fr);gap:8px 12px;width:auto;max-width:100%}
+    .side{display:contents}
+    .sidecard{min-height:0;padding:8px 12px;border-radius:12px}
+    .sidecard h2{display:none}
+    #nextCard{grid-column:1;grid-row:1;flex-direction:row;justify-content:space-between;align-items:center}
+    #holdCard{display:none}
+    #scoreCard{grid-column:2;grid-row:1}
+    .next-grid{min-height:0;width:72px;height:52px}
+    .mini-cell{width:11px;height:11px;border-radius:3px}
+    .stats{grid-template-columns:repeat(4,1fr);gap:6px}
+    .stat{align-items:center;gap:2px}
+    .stat span{font-size:9px;letter-spacing:.08em}
+    .stat b{font-size:17px}
+    .game-panel{grid-column:1 / -1;grid-row:2;justify-self:center;width:100%;min-height:0}
+    #trayCard{grid-column:1 / -1;grid-row:3}
+    .tray{grid-template-columns:repeat(3,1fr);gap:6px}
+    .tray-btn{display:block;text-align:center;min-height:48px;padding:6px}
+    .tray-btn .tray-name,.tray-btn .tray-hint{display:none}
+    .play-help{margin-top:5px;margin-bottom:6px}
+    .controls{gap:6px;flex-wrap:nowrap;width:100%}
+    .controls .btn{flex:1;min-width:0;min-height:44px;padding-inline:8px}
+    .controls .btn .mobile-hide,.controls #dpBtn span{display:none}
+    .pinwrap{top:auto;bottom:12px;left:12px}
+    .overlay-actions{grid-template-columns:1fr}
+  }
+  @media(max-height:700px) and (min-width:821px){
+    .intro-screen,.stage{padding-block:7px}
+    .status{min-height:36px;padding-block:6px}
+    .play-layout{gap:24px}
+    .sidecard{padding:12px}
+    .play-help{margin-bottom:5px;padding-block:4px}
+
+  }
+  @media(prefers-reduced-motion:reduce){
+    *{scroll-behavior:auto!important;transition:none!important;animation:none!important}
+    .fx-pop.show{opacity:1}
+  }
 </style>
 </head>
 <body>
 <section class="intro-screen" id="introScreen" aria-labelledby="introTitle">
+  <div class="screen-bg intro-bg" aria-hidden="true"></div>
   <header class="intro-top">
     <div class="intro-brand"><div class="brandmark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><span>DOT BLOCKS</span></div>
     <span class="intro-kicker">PORTRAIT DOTPAD GAME · 40 × 60</span>
@@ -162,15 +390,18 @@
       </div>
       <div class="intro-actions">
         <button class="intro-start" id="startSelectedBtn" type="button">선택한 모드 시작</button>
-        <button class="intro-secondary" id="introConnectBtn" type="button"><span id="introDpLabel">닷패드 먼저 연결</span></button>
+        <div class="intro-actions-row">
+          <button class="intro-secondary" id="introConnectBtn" type="button"><span id="introDpLabel">닷패드 먼저 연결</span></button>
+          <button class="btn icon" id="soundBtnIntro" type="button" aria-pressed="true" aria-label="음성 켜짐, 누르면 끔"></button>
+        </div>
       </div>
       <p class="intro-access" id="introAccess">Enter 시작 · 1/2 모드 선택</p>
-      <div class="item-assets" aria-label="특수 아이템 이미지 에셋"><span>ITEM ASSETS</span><img src="./assets/items/star.svg" alt="별"><img src="./assets/items/bomb.svg" alt="폭탄"><img src="./assets/items/rainbow.svg" alt="무지개"><img src="./assets/items/random.svg" alt="랜덤"></div>
     </div>
   </main>
 </section>
 
 <div class="stage" id="stage" hidden aria-hidden="true">
+  <div class="screen-bg play-bg" aria-hidden="true"></div>
   <header class="topbar">
     <button class="home-btn" id="homeBtn" type="button" aria-label="인트로 화면으로 돌아가기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg></button>
     <div class="brand">
@@ -184,8 +415,9 @@
   <div class="sr-only" id="criticalLive" role="alert" aria-live="assertive"></div>
 
   <main class="game-shell">
+   <div class="play-layout">
     <aside class="side left" aria-label="게임 기록과 다음 블록">
-      <section class="sidecard">
+      <section class="sidecard" id="scoreCard">
         <h2 id="scoreTitle">게임 기록</h2>
         <div class="stats">
           <div class="stat"><span id="scoreLabel">점수</span><b id="scoreValue">0</b></div>
@@ -199,19 +431,24 @@
     </aside>
 
     <section class="game-panel" aria-label="세로형 블록 게임 보드">
-      <div class="canvas-wrap" id="canvasWrap"><span class="portrait-badge" id="portraitBadge" data-scan="0">PORTRAIT 40 × 60</span><canvas id="board" width="400" height="800" tabindex="0" role="img" aria-label="낙하형 블록 게임 보드"></canvas><div class="fx-pop" id="fxPop" aria-hidden="true"></div></div>
+      <span class="portrait-badge" id="portraitBadge" data-scan="0">PORTRAIT 40 × 60</span>
+      <div class="canvas-wrap" id="canvasWrap"><canvas id="board" width="400" height="800" tabindex="0" role="img" aria-label="낙하형 블록 게임 보드"></canvas><div class="fx-pop" id="fxPop" aria-hidden="true"></div></div>
     </section>
 
     <aside class="side right" aria-label="퍼즐 블록">
       <section class="sidecard" id="trayCard" hidden><h2 id="trayTitle">놓을 블록</h2><div class="tray" id="tray"></div></section>
     </aside>
+   </div>
   </main>
+
+  <p class="play-help" id="playHelp">← → 이동 · ↑ 회전 · ↓ 내리기 · Space 즉시 낙하 · C 보관</p>
 
   <div class="controls" aria-label="플레이 중 핵심 컨트롤">
     <button class="btn" id="pauseBtn" type="button"><svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 5h3v14H8zM14 5h3v14h-3z"/></svg><span id="pauseLabel">일시정지</span></button>
     <button class="btn" id="statusBtn" type="button"><svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 12h16M4 6h10M4 18h7"/></svg><span class="mobile-hide" id="statusLabel">현재 상태</span></button>
     <button class="btn scan" id="scanBtn" type="button" aria-pressed="false"><svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7V4h3M17 4h3v3M20 17v3h-3M7 20H4v-3M7 12h10"/></svg><span class="mobile-hide" id="scanLabel">촉각 스캔</span></button>
     <button class="btn dp" id="dpBtn" type="button" data-on="0"><svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M7 8l10 8-5 4V4l5 4L7 16"/></svg><span id="dpLabel">닷패드 연결</span></button>
+    <button class="btn icon" id="soundBtn" type="button" aria-pressed="true" aria-label="음성 켜짐, 누르면 끔"></button>
   </div>
 
   <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
@@ -242,6 +479,7 @@
 </div>
 
 <div class="pinwrap" id="pinwrap"><canvas id="pin" width="160" height="240" aria-hidden="true"></canvas><div class="cap" id="pinCap">세로 사용 기준 40×60<br>촘촘=고정 · 테두리=현재 · 두 점=착지</div></div>
+<script src="/tts.js"></script>
 <script src="./tts.js"></script>
 <script src="./audio-engine.js"></script>
 <script>
@@ -284,7 +522,11 @@
   let dropTimer=0,dropLast=0,gravityAccumulator=0,groundedAt=0,lastDanger=0;
 
   // Original palette, deliberately distinct from the canonical Tetris color scheme.
-  const COLORS=['#000000','#ff693f','#46c9ff','#ffd059','#a77bff','#55db82','#ff5fa2','#7f8cff'];
+  // The board is monochrome on purpose: a DotPad pin is either raised or flat,
+  // so the screen shows exactly what the fingers read. Hue is reserved for the
+  // one thing the player controls — the active piece.
+  const PIN='#D8DEE7',PIN_OFF='rgba(245,247,250,.10)',ACCENT='#FF5B22',DANGER='#FF5D6C',BOARD_BG='#0A0C0F';
+  const COLORS=['#000000',PIN,PIN,PIN,PIN,PIN,PIN,PIN];
   const SHAPES={
     I:[[0,1],[1,1],[2,1],[3,1]],O:[[0,0],[1,0],[0,1],[1,1]],T:[[0,0],[1,0],[2,0],[1,1]],
     S:[[1,0],[2,0],[0,1],[1,1]],Z:[[0,0],[1,0],[1,1],[2,1]],J:[[0,0],[0,1],[1,1],[2,1]],L:[[2,0],[0,1],[1,1],[2,1]]
@@ -464,9 +706,9 @@
     boardCanvas.setAttribute('aria-label',mode==='drop'?S('낙하형 블록 게임. 시작 전.','Falling block game. Not started.'):S('블록 퍼즐 게임. 시작 전.','Block puzzle game. Not started.'));newBtn.querySelector('span').textContent=S('시작','Start');score=lines=pScore=pClears=0;updateHud();readBest();renderHold();
     announce(mode==='drop'?S('낙하 모드. 시작 버튼이나 엔터를 누르세요.','Drop mode. Press Start or Enter.'):S('블록 퍼즐 모드. 시작 버튼이나 엔터를 누르세요.','Block puzzle mode. Press Start or Enter.'),{phase:'ready',tts:false});if(mode==='drop')renderNext();else renderTray();renderAll();if(autoStart)newGame();
   }
-  function newGame(){ensureAudio();stopSpeech();pauseOverlay.hidden=true;resultOverlay.hidden=true;newBtn.querySelector('span').textContent=S('다시 시작','Restart');if(mode==='drop')initDrop();else initPuzzle()}
+  function newGame(){tw('gameStart',{mode});ensureAudio();stopSpeech();pauseOverlay.hidden=true;resultOverlay.hidden=true;newBtn.querySelector('span').textContent=S('다시 시작','Restart');if(mode==='drop')initDrop();else initPuzzle()}
   function togglePause(){if(mode!=='drop'||over||!running)return;paused=!paused;$('pauseLabel').textContent=paused?S('계속','Resume'):S('일시정지','Pause');if(paused)audio.pause();else audio.start();announce(paused?S('일시정지. 계속하기 버튼 또는 P 키를 누르세요.','Paused. Press Resume or P to continue.'):S('게임을 계속합니다.','Game resumed.'),{phase:paused?'ready':'play',tts:true});dropLast=performance.now();showPauseState();renderAll()}
-  function gameOver(reason){running=false;over=true;paused=false;scanMode=false;cancelAnimationFrame(dropTimer);setBest();audio.stop();audio.earcon('gameover');const finalText=reason+' '+S('최종 점수 ','Final score ')+(mode==='drop'?score:pScore)+S('점.',' points.');announce(finalText,{phase:'over',tts:true,critical:true});showResult(reason);renderAll();padPulse()}
+  function gameOver(reason){tw('gameEnd',{mode,score:mode==='drop'?score:pScore,lines:mode==='drop'?lines:pClears,level});running=false;over=true;paused=false;scanMode=false;cancelAnimationFrame(dropTimer);setBest();audio.stop();audio.earcon('gameover');const finalText=reason+' '+S('최종 점수 ','Final score ')+(mode==='drop'?score:pScore)+S('점.',' points.');announce(finalText,{phase:'over',tts:true,critical:true});showResult(reason);renderAll();padPulse()}
   function tutorial(){
     const text=mode==='drop'?S('닷패드를 세로로 세우세요. 촘촘한 면은 고정된 블록, 테두리 모양은 현재 움직이는 블록, 가운데 두 점은 예상 착지 위치입니다. F1과 F2로 좌우 이동, F3 회전, F4 한 칸 아래, 오른쪽 패닝으로 즉시 낙하, F1과 F2 동시 입력으로 보관합니다. 왼쪽 패닝은 현재 상태, 전체 패닝은 표면 스캔입니다. 바닥에 닿은 뒤에도 잠금 유예 동안 이동과 회전이 가능합니다.','Stand the DotPad vertically. Dense cells are settled blocks, outlined cells are the moving piece, and two center dots show the landing preview. F1 and F2 move left and right, F3 rotates, F4 moves down, right pan hard drops, and F1 plus F2 holds. Left pan reads status and all pan opens surface scan. You can still move during the lock delay after touching the floor.'):
       S('블록 퍼즐은 떨어지지 않습니다. 테두리 질감의 블록을 방향키로 옮기고, 왼쪽 패닝으로 회전, 오른쪽 패닝으로 블록 선택, 전체 패닝으로 놓습니다. 겹치는 위치는 엑스 질감으로 표시됩니다. 가로 또는 세로 한 줄을 모두 채우면 지워집니다.','Block puzzle pieces do not fall. Move the outlined piece, rotate with left pan, select with right pan, and place with all pan. Invalid overlapping positions use an X texture. Complete a row or column to clear it.');
@@ -496,11 +738,13 @@
   // ---------- SCREEN RENDER ----------
   function resizeCanvas(){const r=boardCanvas.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1),w=Math.max(240,Math.round(r.width*dpr)),h=Math.max(480,Math.round(r.height*dpr));if(boardCanvas.width!==w||boardCanvas.height!==h){boardCanvas.width=w;boardCanvas.height=h}}
   function roundedRect(c,x,y,w,h,r){c.beginPath();if(c.roundRect)c.roundRect(x,y,w,h,r);else c.rect(x,y,w,h)}
-  function drawBlock(x,y,w,h,color,alpha=1,outline=false){ctx.save();ctx.globalAlpha=alpha;const pad=Math.max(1.4,w*.065),r=Math.max(3,w*.18),bx=x+pad,by=y+pad,bw=w-pad*2,bh=h-pad*2;roundedRect(ctx,bx,by,bw,bh,r);if(outline){ctx.strokeStyle=color;ctx.lineWidth=Math.max(2,w*.085);ctx.shadowColor=color;ctx.shadowBlur=Math.max(4,w*.16);ctx.stroke()}else{const g=ctx.createLinearGradient(bx,by,bx+bw,by+bh);g.addColorStop(0,'rgba(255,255,255,.82)');g.addColorStop(.12,color);g.addColorStop(.72,color);g.addColorStop(1,'rgba(0,0,0,.72)');ctx.fillStyle=g;ctx.shadowColor=color;ctx.shadowBlur=Math.max(2,w*.08);ctx.fill();ctx.shadowBlur=0;roundedRect(ctx,bx+Math.max(2,w*.08),by+Math.max(2,w*.08),Math.max(2,bw-Math.max(4,w*.16)),Math.max(2,bh-Math.max(4,w*.16)),Math.max(2,r*.65));ctx.strokeStyle='rgba(255,255,255,.22)';ctx.lineWidth=Math.max(1,w*.025);ctx.stroke();ctx.beginPath();ctx.moveTo(bx+r*.8,by+Math.max(2,w*.09));ctx.lineTo(bx+bw-r*.7,by+Math.max(2,w*.09));ctx.strokeStyle='rgba(255,255,255,.45)';ctx.lineWidth=Math.max(1,w*.035);ctx.stroke()}ctx.restore()}
-  function renderScreen(){resizeCanvas();const W=boardCanvas.width,H=boardCanvas.height;ctx.clearRect(0,0,W,H);const bg=ctx.createLinearGradient(0,0,0,H);bg.addColorStop(0,'#101525');bg.addColorStop(1,'#060812');ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);if(mode==='drop')renderDropScreen(W,H);else renderPuzzleScreen(W,H)}
-  function renderDropScreen(W,H){const cw=W/DROP_W,ch=H/DROP_H;ctx.strokeStyle='rgba(255,255,255,.055)';ctx.lineWidth=1;for(let x=1;x<DROP_W;x++){ctx.beginPath();ctx.moveTo(x*cw,0);ctx.lineTo(x*cw,H);ctx.stroke()}for(let y=1;y<DROP_H;y++){ctx.beginPath();ctx.moveTo(0,y*ch);ctx.lineTo(W,y*ch);ctx.stroke()}if(dangerLevel()){ctx.fillStyle='rgba(255,93,108,.07)';ctx.fillRect(0,0,W,ch*5)}for(let y=0;y<DROP_H;y++)for(let x=0;x<DROP_W;x++)if(dBoard[y]&&dBoard[y][x])drawBlock(x*cw,y*ch,cw,ch,flashRows.includes(y)?'#ffffff':COLORS[dBoard[y][x]]);if(active){const gy=ghostY();for(const[cx,cy]of active.cells){const x=active.x+cx,y=gy+cy;if(y>=0)drawBlock(x*cw,y*ch,cw,ch,'#aeb5c9',.32,true)}for(const[cx,cy]of active.cells){const x=active.x+cx,y=active.y+cy;if(y>=0)drawBlock(x*cw,y*ch,cw,ch,COLORS[active.color])}}if(scanMode){const heights=stackHeights();ctx.fillStyle='rgba(255,255,255,.08)';ctx.fillRect(0,0,W,H);ctx.strokeStyle='#fff';ctx.lineWidth=Math.max(2,W*.01);ctx.beginPath();for(let x=0;x<DROP_W;x++){const y=(DROP_H-heights[x])*ch;const px=(x+.5)*cw;if(x===0)ctx.moveTo(px,y);else ctx.lineTo(px,y)}ctx.stroke()}}
-  function renderPuzzleScreen(W,H){const cw=W/PUZZLE_W,ch=H/PUZZLE_H;ctx.strokeStyle='rgba(255,255,255,.075)';ctx.lineWidth=1;for(let x=1;x<PUZZLE_W;x++){ctx.beginPath();ctx.moveTo(x*cw,0);ctx.lineTo(x*cw,H);ctx.stroke()}for(let y=1;y<PUZZLE_H;y++){ctx.beginPath();ctx.moveTo(0,y*ch);ctx.lineTo(W,y*ch);ctx.stroke()}for(let y=0;y<PUZZLE_H;y++)for(let x=0;x<PUZZLE_W;x++)if(pBoard[y]&&pBoard[y][x])drawBlock(x*cw,y*ch,cw,ch,(flashRows.includes(y)||flashCols.includes(x))?'#ffffff':COLORS[pBoard[y][x]]);const p=currentPuzzlePiece();if(p&&!p.used){const valid=canPlacePuzzle(p,cursorX,cursorY);for(const[cx,cy]of p.cells)drawBlock((cursorX+cx)*cw,(cursorY+cy)*ch,cw,ch,valid?COLORS[p.color]:'#ff5d6c',valid?.66:.45,!valid)}if(scanMode){ctx.fillStyle='rgba(255,255,255,.06)';ctx.fillRect(0,0,W,H)}}
-  function renderMini(container,cells,colorIndex=1,maxPx=68){container.innerHTML='';if(!cells)return;const b=pieceBounds(cells),mini=document.createElement('div');mini.className='mini';mini.style.gridTemplateColumns=`repeat(${b.w},1fr)`;mini.style.gridTemplateRows=`repeat(${b.h},1fr)`;const size=Math.max(9,Math.min(18,Math.floor(maxPx/Math.max(b.w,b.h))));for(let y=0;y<b.h;y++)for(let x=0;x<b.w;x++){const d=document.createElement('span');d.className='mini-cell'+(cells.some(v=>v[0]===x&&v[1]===y)?' on':'');d.style.width=size+'px';d.style.height=size+'px';if(d.classList.contains('on'))d.style.background=COLORS[colorIndex];mini.appendChild(d)}container.appendChild(mini);container.classList.remove('mini-refresh');void container.offsetWidth;container.classList.add('mini-refresh')}
+  function drawBlock(x,y,w,h,color,alpha=1,outline=false){ctx.save();ctx.globalAlpha=alpha;const pad=Math.max(1,w*.075),r=Math.max(2,w*.22),bx=x+pad,by=y+pad,bw=w-pad*2,bh=h-pad*2;roundedRect(ctx,bx,by,bw,bh,r);if(outline){ctx.strokeStyle=color;ctx.lineWidth=Math.max(1.6,w*.09);ctx.stroke()}else{ctx.shadowColor=color;ctx.shadowBlur=color===ACCENT?Math.max(4,w*.34):Math.max(2,w*.1);ctx.fillStyle=color;ctx.fill();ctx.shadowBlur=0;const g=ctx.createLinearGradient(bx,by,bx,by+bh);g.addColorStop(0,'rgba(255,255,255,.26)');g.addColorStop(.5,'rgba(255,255,255,0)');ctx.fillStyle=g;ctx.fill()}ctx.restore()}
+  // Empty cells are drawn as lowered pins rather than grid lines.
+  function drawPinField(W,H,cols,rows){const cw=W/cols,ch=H/rows,r=Math.max(.9,Math.min(cw,ch)*.075);ctx.fillStyle=PIN_OFF;for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){ctx.beginPath();ctx.arc((x+.5)*cw,(y+.5)*ch,r,0,6.2832);ctx.fill()}}
+  function renderScreen(){resizeCanvas();const W=boardCanvas.width,H=boardCanvas.height;ctx.clearRect(0,0,W,H);ctx.fillStyle=BOARD_BG;ctx.fillRect(0,0,W,H);if(mode==='drop')renderDropScreen(W,H);else renderPuzzleScreen(W,H)}
+  function renderDropScreen(W,H){const cw=W/DROP_W,ch=H/DROP_H;drawPinField(W,H,DROP_W,DROP_H);if(dangerLevel()){ctx.save();ctx.fillStyle='rgba(255,93,108,.08)';ctx.fillRect(0,0,W,ch*5);ctx.strokeStyle='rgba(255,93,108,.5)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,Math.round(ch*5)+.5);ctx.lineTo(W,Math.round(ch*5)+.5);ctx.stroke();ctx.restore()}for(let y=0;y<DROP_H;y++)for(let x=0;x<DROP_W;x++)if(dBoard[y]&&dBoard[y][x])drawBlock(x*cw,y*ch,cw,ch,flashRows.includes(y)?'#ffffff':PIN);if(active){const gy=ghostY();for(const[cx,cy]of active.cells){const x=active.x+cx,y=gy+cy;if(y>=0)drawBlock(x*cw,y*ch,cw,ch,ACCENT,.42,true)}for(const[cx,cy]of active.cells){const x=active.x+cx,y=active.y+cy;if(y>=0)drawBlock(x*cw,y*ch,cw,ch,ACCENT)}}if(scanMode){ctx.save();ctx.fillStyle='rgba(10,12,15,.76)';ctx.fillRect(0,0,W,H);const heights=stackHeights();ctx.strokeStyle=ACCENT;ctx.lineWidth=Math.max(1.5,W*.006);ctx.lineJoin='round';ctx.beginPath();for(let x=0;x<DROP_W;x++){const y=(DROP_H-heights[x])*ch,px=(x+.5)*cw;if(x===0)ctx.moveTo(px,y);else ctx.lineTo(px,y)}ctx.stroke();ctx.restore()}}
+  function renderPuzzleScreen(W,H){const cw=W/PUZZLE_W,ch=H/PUZZLE_H;drawPinField(W,H,PUZZLE_W,PUZZLE_H);for(let y=0;y<PUZZLE_H;y++)for(let x=0;x<PUZZLE_W;x++)if(pBoard[y]&&pBoard[y][x])drawBlock(x*cw,y*ch,cw,ch,(flashRows.includes(y)||flashCols.includes(x))?'#ffffff':PIN);const p=currentPuzzlePiece();if(p&&!p.used){const valid=canPlacePuzzle(p,cursorX,cursorY);for(const[cx,cy]of p.cells)drawBlock((cursorX+cx)*cw,(cursorY+cy)*ch,cw,ch,valid?ACCENT:DANGER,valid?.9:.5,!valid)}if(scanMode){ctx.fillStyle='rgba(10,12,15,.66)';ctx.fillRect(0,0,W,H)}}
+  function renderMini(container,cells,colorIndex=1,maxPx=68){container.innerHTML='';if(!cells)return;const b=pieceBounds(cells),mini=document.createElement('div');mini.className='mini';mini.style.gridTemplateColumns=`repeat(${b.w},1fr)`;mini.style.gridTemplateRows=`repeat(${b.h},1fr)`;const size=Math.max(9,Math.min(18,Math.floor(maxPx/Math.max(b.w,b.h))));for(let y=0;y<b.h;y++)for(let x=0;x<b.w;x++){const d=document.createElement('span');d.className='mini-cell'+(cells.some(v=>v[0]===x&&v[1]===y)?' on':'');d.style.width=size+'px';d.style.height=size+'px';mini.appendChild(d)}container.appendChild(mini);container.classList.remove('mini-refresh');void container.offsetWidth;container.classList.add('mini-refresh')}
   function renderNext(){if(mode==='drop')renderMini(nextGrid,SHAPES[nextType],SHAPE_KEYS.indexOf(nextType)+1,70)}
   function renderHold(){if(mode!=='drop')return;renderMini(holdGrid,holdType?SHAPES[holdType]:null,holdType?SHAPE_KEYS.indexOf(holdType)+1:1,70);$('holdState').textContent=holdType?PIECE_NAMES[holdType]:S('비어 있음','Empty')}
   function renderTray(){if(mode!=='puzzle')return;trayEl.innerHTML='';pTray.forEach((p,i)=>{const b=document.createElement('button');b.className='tray-btn';b.type='button';b.disabled=p.used;b.setAttribute('aria-current',String(i===selectedPiece&&!p.used));b.setAttribute('aria-label',S((i+1)+'번 '+p.name+(p.used?' 사용함':' 선택'),'Piece '+(i+1)+' '+p.name+(p.used?', used':', select')));const mini=document.createElement('span');mini.className='tray-mini';renderMini(mini,p.cells,p.color,46);const txt=document.createElement('span');txt.innerHTML='<span class="tray-name">'+(i+1)+'. '+p.name+'</span><span class="tray-hint">'+(p.used?S('사용 완료','Used'):S('선택해서 배치','Select and place'))+'</span>';b.append(mini,txt);b.addEventListener('click',()=>selectPuzzle(i));trayEl.appendChild(b)})}
@@ -584,9 +828,47 @@
   document.addEventListener('keydown',ev=>{const k=ev.key;document.body.classList.add('kbd');ensureAudio();if(!introScreen.hidden){if(k==='1'){setMode('drop',false);ev.preventDefault();return}if(k==='2'){setMode('puzzle',false);ev.preventDefault();return}if(k==='Enter'){showPlay();newGame();ev.preventDefault();return}}if(k==='Escape'&&!settingsDrawer.hidden){closeDrawer();ev.preventDefault();return}if(k==='1'){setMode('drop',true);ev.preventDefault();return}if(k==='2'){setMode('puzzle',true);ev.preventDefault();return}if(k==='h'||k==='H'||k==='?'){tutorial();ev.preventDefault();return}if(k==='n'||k==='N'){newGame();ev.preventDefault();return}if(k==='o'||k==='O'){toggleOrientation();ev.preventDefault();return}if(k==='s'||k==='S'){readStatus(false);ev.preventDefault();return}if(k==='d'||k==='D'){readStatus(true);ev.preventDefault();return}if(k==='v'||k==='V'){readNextHold();ev.preventDefault();return}if(k==='q'||k==='Q'){toggleScan();ev.preventDefault();return}if(k==='Enter'&&over){newGame();ev.preventDefault();return}
     if(mode==='drop'){if(k==='ArrowLeft')moveDrop(-1,0);else if(k==='ArrowRight')moveDrop(1,0);else if(k==='ArrowDown')moveDrop(0,1);else if(k==='ArrowUp'||k==='x'||k==='X')rotateDrop();else if(k===' ')hardDrop();else if(k==='c'||k==='C')holdDrop();else if(k==='p'||k==='P')togglePause();else return;ev.preventDefault()}
     else{if(k==='ArrowLeft')movePuzzle(-1,0);else if(k==='ArrowRight')movePuzzle(1,0);else if(k==='ArrowUp')movePuzzle(0,-1);else if(k==='ArrowDown')movePuzzle(0,1);else if(k==='r'||k==='R')rotatePuzzle();else if(k==='Tab')cyclePuzzle();else if(k===' '||k==='Enter')placePuzzle();else return;ev.preventDefault()}});
-  dropModeBtn.addEventListener('click',()=>setMode('drop',false));puzzleModeBtn.addEventListener('click',()=>setMode('puzzle',false));startSelectedBtn.addEventListener('click',()=>{showPlay();newGame()});introConnectBtn.addEventListener('click',connectDotPad);homeBtn.addEventListener('click',showIntro);menuBtn.addEventListener('click',openDrawer);drawerClose.addEventListener('click',closeDrawer);drawerBackdrop.addEventListener('click',closeDrawer);resumeBtn.addEventListener('click',togglePause);pauseHomeBtn.addEventListener('click',showIntro);restartBtn.addEventListener('click',()=>{resultOverlay.hidden=true;newGame()});resultHomeBtn.addEventListener('click',showIntro);newBtn.addEventListener('click',()=>{closeDrawer();newGame()});pauseBtn.addEventListener('click',togglePause);helpBtn.addEventListener('click',tutorial);statusBtn.addEventListener('click',()=>readStatus(false));scanBtn.addEventListener('click',toggleScan);dpBtn.addEventListener('click',connectDotPad);
+  dropModeBtn.addEventListener('click',()=>setMode('drop',false));puzzleModeBtn.addEventListener('click',()=>setMode('puzzle',false));startSelectedBtn.addEventListener('click',()=>{showPlay();newGame()});introConnectBtn.addEventListener('click',connectDotPad);homeBtn.addEventListener('click',()=>{tw('exit');showIntro()});menuBtn.addEventListener('click',openDrawer);drawerClose.addEventListener('click',closeDrawer);drawerBackdrop.addEventListener('click',closeDrawer);resumeBtn.addEventListener('click',togglePause);pauseHomeBtn.addEventListener('click',showIntro);restartBtn.addEventListener('click',()=>{resultOverlay.hidden=true;newGame()});resultHomeBtn.addEventListener('click',showIntro);newBtn.addEventListener('click',()=>{closeDrawer();newGame()});pauseBtn.addEventListener('click',togglePause);helpBtn.addEventListener('click',tutorial);statusBtn.addEventListener('click',()=>readStatus(false));scanBtn.addEventListener('click',toggleScan);dpBtn.addEventListener('click',connectDotPad);
   function toggleOrientation(){rotateDir=rotateDir==='cw'?'ccw':'cw';$('orientationLabel').textContent=rotateDir==='cw'?S('회전: 오른쪽','Rotate: right'):S('회전: 왼쪽','Rotate: left');renderPad();speak(rotateDir==='cw'?S('오른쪽으로 돌려 세우는 방향입니다.','Use clockwise portrait rotation.'):S('왼쪽으로 돌려 세우는 방향입니다.','Use counterclockwise portrait rotation.'))}
   orientationBtn.addEventListener('click',toggleOrientation);
+  /* ── Sound toggle (Dot Games common component) ──────────────────────
+     One capsule mutes speech, earcons and music together, the same way the
+     five reference games do. Individual switches stay in the settings sheet
+     and are kept in sync both ways. */
+  const SVG_VOL='<svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 8a5 5 0 0 1 0 8"/><path d="M17.7 5a9 9 0 0 1 0 14"/><path d="M6 15h-2a1 1 0 0 1 -1 -1v-4a1 1 0 0 1 1 -1h2l3.5 -4.5a.8 .8 0 0 1 1.5 .5v14a.8 .8 0 0 1 -1.5 .5l-3.5 -4.5"/></svg>';
+  const SVG_VOL_OFF='<svg class="ti" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 8a5 5 0 0 1 1.912 4.934m-1.377 2.602a5 5 0 0 1 -.535 .464"/><path d="M17.7 5a9 9 0 0 1 2.362 11.086m-1.676 2.299a9 9 0 0 1 -.686 .615"/><path d="M9.069 5.054l.431 -.554a.8 .8 0 0 1 1.5 .5v2m0 4v8a.8 .8 0 0 1 -1.5 .5l-3.5 -4.5h-2a1 1 0 0 1 -1 -1v-4a1 1 0 0 1 1 -1h2l1.294 -1.664"/><path d="M3 3l18 18"/></svg>';
+  const soundBtns=[$('soundBtn'),$('soundBtnIntro')].filter(Boolean);
+  function anySound(){return settings.speech||settings.sfx||settings.music}
+  function syncSoundBtn(){const on=anySound();soundBtns.forEach(b=>{b.innerHTML=on?SVG_VOL:SVG_VOL_OFF;b.setAttribute('aria-pressed',String(on));b.setAttribute('aria-label',on?S('음성 켜짐, 누르면 끔','Sound on, press to mute'):S('음성 꺼짐, 누르면 켬','Sound off, press to unmute'))})}
+  function toggleSound(){
+    if(anySound()){
+      settings.premute={speech:settings.speech,sfx:settings.sfx,music:settings.music};
+      settings.speech=settings.sfx=settings.music=false;stopSpeech();
+    }else{
+      const prev=settings.premute||{speech:true,sfx:true,music:true};
+      settings.speech=prev.speech!==false;settings.sfx=prev.sfx!==false;settings.music=prev.music!==false;
+    }
+    audio.setSfxEnabled(settings.sfx);audio.setMusicEnabled(settings.music);
+    if(settings.music&&running&&!paused)audio.start();else if(!settings.music)audio.pause();
+    setToggle(speechToggle,'speechState',settings.speech);setToggle(sfxToggle,'sfxState',settings.sfx);setToggle(musicToggle,'musicState',settings.music);
+    saveSettings();syncSoundBtn();
+    if(anySound())speak(S('음성을 켰어요.','Sound on.'));
+  }
+  soundBtns.forEach(b=>b.addEventListener('click',toggleSound));
+
+  /* ── Dot Games host contract ────────────────────────────────────────
+     Outbound postMessage({source:'dotarcade', …}): ready / gameStart /
+     gameEnd / resize / exit. Inbound: tw:pause, tw:resume, tw:setLang. */
+  const HOST=(window.parent&&window.parent!==window)?window.parent:null;
+  function tw(type,data){if(!HOST)return;try{HOST.postMessage(Object.assign({source:'dotarcade',game:'dot-blocks',type},data||{}),'*')}catch(e){}}
+  function twSize(){const r=document.documentElement;tw('resize',{width:r.clientWidth,height:r.clientHeight})}
+  window.addEventListener('message',e=>{
+    const d=e.data;if(!d||typeof d!=='object')return;
+    if(d.type==='tw:pause'){if(mode==='drop'&&running&&!over&&!paused)togglePause()}
+    else if(d.type==='tw:resume'){if(paused)togglePause()}
+    else if(d.type==='tw:setLang'&&(d.lang==='ko'||d.lang==='en')){if(window.TW_TTS&&TW_TTS.setLang)TW_TTS.setLang(d.lang)}
+  ;syncSoundBtn();syncSoundBtn();syncSoundBtn()});
+
   function setToggle(button,label,on){button.setAttribute('aria-pressed',String(on));$(label).textContent=on?S('켜짐','On'):S('꺼짐','Off')}
   speechToggle.addEventListener('click',()=>{settings.speech=!settings.speech;setToggle(speechToggle,'speechState',settings.speech);saveSettings();if(settings.speech)speak(S('음성 안내를 켰어요.','Speech guidance on.'));else stopSpeech()});
   sfxToggle.addEventListener('click',()=>{settings.sfx=!settings.sfx;audio.setSfxEnabled(settings.sfx);setToggle(sfxToggle,'sfxState',settings.sfx);saveSettings();if(settings.sfx)audio.earcon('start')});
@@ -600,12 +882,13 @@
   let pointerStart=null;
   boardCanvas.addEventListener('pointerdown',e=>{ensureAudio();boardCanvas.focus();pointerStart={x:e.clientX,y:e.clientY,t:performance.now()};try{boardCanvas.setPointerCapture(e.pointerId)}catch(err){}});
   boardCanvas.addEventListener('pointerup',e=>{if(!pointerStart)return;const dx=e.clientX-pointerStart.x,dy=e.clientY-pointerStart.y,dist=Math.hypot(dx,dy);pointerStart=null;if(over){newGame();return}if(mode==='drop'){if(dist<24)rotateDrop();else if(Math.abs(dx)>Math.abs(dy)){moveDrop(dx<0?-1:1,0)}else if(dy>55)hardDrop();else if(dy<-45)holdDrop();else moveDrop(0,1)}else{if(dist<24)placePuzzle();else if(Math.abs(dx)>Math.abs(dy))movePuzzle(dx<0?-1:1,0);else movePuzzle(0,dy<0?-1:1)}});
-  window.addEventListener('resize',()=>{clearTimeout(window.__dbRz);window.__dbRz=setTimeout(renderAll,100)});document.addEventListener('visibilitychange',()=>{if(!stage.hidden&&document.hidden&&mode==='drop'&&running&&!over&&!paused){paused=true;audio.pause();$('pauseLabel').textContent=S('계속','Resume');showPauseState();announce(S('앱이 백그라운드로 이동해 자동 일시정지했습니다.','Automatically paused while the app is in the background.'),{phase:'ready',tts:false})}});document.addEventListener('pointerdown',()=>document.body.classList.remove('kbd'));document.body.addEventListener('pointerdown',function once(){ensureAudio();try{speechSynthesis.resume()}catch(e){}document.body.removeEventListener('pointerdown',once)},{once:true});
+  window.addEventListener('resize',()=>{clearTimeout(window.__dbRz);window.__dbRz=setTimeout(()=>{renderAll();twSize()},100)});document.addEventListener('visibilitychange',()=>{if(!stage.hidden&&document.hidden&&mode==='drop'&&running&&!over&&!paused){paused=true;audio.pause();$('pauseLabel').textContent=S('계속','Resume');showPauseState();announce(S('앱이 백그라운드로 이동해 자동 일시정지했습니다.','Automatically paused while the app is in the background.'),{phase:'ready',tts:false})}});document.addEventListener('pointerdown',()=>document.body.classList.remove('kbd'));document.body.addEventListener('pointerdown',function once(){ensureAudio();try{speechSynthesis.resume()}catch(e){}document.body.removeEventListener('pointerdown',once)},{once:true});
   window.getDotpadFrame=()=>encodeHardware(portraitToHardware(buildPortraitFrame()));window.getPortraitFrame=()=>buildPortraitFrame();window.getAccessibilityState=()=>({mode,scanMode,settings:{...settings},danger:mode==='drop'?dangerLevel():0,frameLength:window.getDotpadFrame().length,brailleLine:brailleLine()});
 
-  function applyLang(){if(LANG!=='en')return;document.documentElement.lang='en';document.title='DOT BLOCKS';$('blindBadge').textContent='BLIND-FIRST';$('scoreTitle').textContent='Game Stats';$('scoreLabel').textContent='Score';$('secondaryLabel').textContent='Lines';$('levelLabel').textContent='Level';$('bestLabel').textContent='Best';$('nextTitle').textContent='Next Piece';$('holdTitle').textContent='Held Piece';$('holdHint').textContent='C / F1+F2';$('verticalTitle').textContent='Portrait DotPad';$('orientationText').innerHTML='<strong>40×60 logical pins</strong> rotate automatically into the physical 60×40 output. Stand the DotPad with controls at the bottom.';$('legend').innerHTML='<span class="legend-sample solid" aria-hidden="true"></span><span>Dense: settled block</span><span class="legend-sample outline" aria-hidden="true"></span><span>Outline: moving piece</span><span class="legend-sample ghost" aria-hidden="true"></span><span>Two dots: landing preview</span>';$('trayTitle').textContent='Pieces';$('controlsTitle').textContent='Controls';$('padKeysTitle').textContent='DotPad Keys';$('accessTitle').textContent='Audio & Accessibility';$('speechLabel').textContent='Speech guidance';$('sfxLabel').textContent='Directional earcons';$('musicLabel').textContent='Procedural music';$('assistLabel').textContent='Tactile-friendly lock delay';$('speedLabel').textContent='Drop speed';speedSelect.options[0].text='Relaxed';speedSelect.options[1].text='Standard';speedSelect.options[2].text='Challenge';$('musicStyleLabel').textContent='Music style';musicStyleSelect.options[0].text='Default (ambient)';musicStyleSelect.options[1].text='Retro (chiptune)';$('newLabel').textContent='Start';$('pauseLabel').textContent='Pause';$('statusLabel').textContent='Status';$('scanLabel').textContent='Surface scan';$('helpLabel').textContent='How to play';$('orientationLabel').textContent=rotateDir==='cw'?'Rotate: right':'Rotate: left';$('dpLabel').textContent='Connect DotPad';$('introDpLabel').textContent='Connect DotPad first';$('pinLabel').textContent='Pin preview';$('pinCap').innerHTML='Portrait 40×60<br>Dense=settled · outline=current · two dots=landing';$('introEyebrow').textContent='Tactile block game';$('introTagline').textContent='Build by touch, navigate by sound.';$('introDesc').textContent='Stand the DotPad upright and play without the screen.';$('dropModeName').textContent='Drop Mode';$('dropModeDesc').textContent='Move and rotate pieces to complete horizontal lines.';$('puzzleModeName').textContent='Block Puzzle';$('puzzleModeDesc').textContent='Place pieces to clear horizontal and vertical lines.';$('introAccess').textContent='Enter to start · 1/2 to pick a mode';$('settingsTitle').textContent='Game Settings';$('pauseTitle').textContent='Paused';$('pauseDesc').textContent='The game and falling piece are paused. The current DotPad pin state is preserved.';$('resumeBtn').textContent='Resume';$('pauseHomeBtn').textContent='Back to Intro';$('resultTitle').textContent='Game Over';$('restartBtn').textContent='Play Again';$('resultHomeBtn').textContent='Choose Another Mode';setToggle(speechToggle,'speechState',settings.speech);setToggle(sfxToggle,'sfxState',settings.sfx);setToggle(musicToggle,'musicState',settings.music);setToggle(assistToggle,'assistState',settings.assist)}
+  function applyLang(){if(LANG!=='en')return;document.documentElement.lang='en';document.title='DOT BLOCKS';$('blindBadge').textContent='BLIND-FIRST';$('scoreTitle').textContent='Game Stats';$('scoreLabel').textContent='Score';$('secondaryLabel').textContent='Lines';$('levelLabel').textContent='Level';$('bestLabel').textContent='Best';$('nextTitle').textContent='Next Piece';$('holdTitle').textContent='Held Piece';$('holdHint').textContent='C / F1+F2';$('verticalTitle').textContent='Portrait DotPad';$('orientationText').innerHTML='<strong>40×60 logical pins</strong> rotate automatically into the physical 60×40 output. Stand the DotPad with controls at the bottom.';$('legend').innerHTML='<span class="legend-sample solid" aria-hidden="true"></span><span>Dense: settled block</span><span class="legend-sample outline" aria-hidden="true"></span><span>Outline: moving piece</span><span class="legend-sample ghost" aria-hidden="true"></span><span>Two dots: landing preview</span>';$('trayTitle').textContent='Pieces';$('controlsTitle').textContent='Controls';$('padKeysTitle').textContent='DotPad Keys';$('accessTitle').textContent='Audio & Accessibility';$('speechLabel').textContent='Speech guidance';$('sfxLabel').textContent='Directional earcons';$('musicLabel').textContent='Procedural music';$('assistLabel').textContent='Tactile-friendly lock delay';$('speedLabel').textContent='Drop speed';speedSelect.options[0].text='Relaxed';speedSelect.options[1].text='Standard';speedSelect.options[2].text='Challenge';$('musicStyleLabel').textContent='Music style';musicStyleSelect.options[0].text='Default (ambient)';musicStyleSelect.options[1].text='Retro (chiptune)';$('newLabel').textContent='Start';$('pauseLabel').textContent='Pause';$('statusLabel').textContent='Status';$('scanLabel').textContent='Surface scan';$('helpLabel').textContent='How to play';$('orientationLabel').textContent=rotateDir==='cw'?'Rotate: right':'Rotate: left';$('dpLabel').textContent='Connect DotPad';$('introDpLabel').textContent='Connect DotPad first';$('pinLabel').textContent='Pin preview';$('playHelp').textContent='← → move · ↑ rotate · ↓ soft drop · Space hard drop · C hold';syncSoundBtn();$('pinCap').innerHTML='Portrait 40×60<br>Dense=settled · outline=current · two dots=landing';$('introEyebrow').textContent='Tactile block game';$('introTagline').textContent='Build by touch, navigate by sound.';$('introDesc').textContent='Stand the DotPad upright and play without the screen.';$('dropModeName').textContent='Drop Mode';$('dropModeDesc').textContent='Move and rotate pieces to complete horizontal lines.';$('puzzleModeName').textContent='Block Puzzle';$('puzzleModeDesc').textContent='Place pieces to clear horizontal and vertical lines.';$('introAccess').textContent='Enter to start · 1/2 to pick a mode';$('settingsTitle').textContent='Game Settings';$('pauseTitle').textContent='Paused';$('pauseDesc').textContent='The game and falling piece are paused. The current DotPad pin state is preserved.';$('resumeBtn').textContent='Resume';$('pauseHomeBtn').textContent='Back to Intro';$('resultTitle').textContent='Game Over';$('restartBtn').textContent='Play Again';$('resultHomeBtn').textContent='Choose Another Mode';setToggle(speechToggle,'speechState',settings.speech);setToggle(sfxToggle,'sfxState',settings.sfx);setToggle(musicToggle,'musicState',settings.music);setToggle(assistToggle,'assistState',settings.assist)}
 
-  applyLang();setMode(params.get('mode')==='puzzle'?'puzzle':'drop',false);showIntro();loadSDK();if(params.get('preview')==='1'){pinwrap.classList.add('show');pinToggle.setAttribute('aria-pressed','true');drawPin()}
+  applyLang();syncSoundBtn();setMode(params.get('mode')==='puzzle'?'puzzle':'drop',false);showIntro();loadSDK();if(params.get('preview')==='1'){pinwrap.classList.add('show');pinToggle.setAttribute('aria-pressed','true');drawPin()}
+  tw('ready',{modes:['drop','puzzle'],lang:LANG});twSize();
 })();
 </script>
 </body>
