@@ -97,7 +97,7 @@
     color:var(--ink-secondary);font-size:clamp(15px,2vmin,19px);font-weight:500;line-height:1.65}
   .intro-desc{max-width:none;margin:6px 0 0;color:var(--ink-muted);font-size:clamp(13px,1.7vmin,15px);font-weight:500;line-height:1.6}
 
-  .mode-choice{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;width:100%;max-width:520px;margin-top:clamp(20px,3.4vh,30px)}
+  .mode-choice{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;width:100%;max-width:640px;margin-top:clamp(20px,3.4vh,30px)}
   .mode-card{position:relative;min-height:0;display:flex;flex-direction:column;align-items:center;overflow:hidden;cursor:pointer;
     padding:15px 13px 16px;border:1px solid rgb(255 255 255 / 11%);border-radius:14px;background:rgb(255 255 255 / 7%);color:var(--ink);text-align:center;
     box-shadow:inset 0 1px 0 rgb(255 255 255 / 4%);transition:transform 140ms ease,background-color 140ms ease,border-color 140ms ease}
@@ -344,10 +344,16 @@
     .intro-bg{background-image:linear-gradient(180deg,rgb(0 0 0 / 10%),rgb(0 0 0 / 45%)),url("./assets/intro-bg-mobile.webp")}
     .intro-copy{padding:12px 6px;transform:none}
     .block-title__english{flex-direction:column;gap:7px}
-    .mode-choice{gap:8px;margin-top:18px}
-    .mode-card{padding:12px 10px 13px}
-    .mode-card strong{font-size:13.5px;margin-top:9px}
-    .mode-card small{font-size:11px}
+    /* Three columns at 102px each squeezes the descriptions to a few
+       characters per line, so the cards stack and turn horizontal instead. */
+    .mode-choice{grid-template-columns:1fr;gap:7px;margin-top:16px}
+    .mode-card{display:grid;grid-template-columns:auto 1fr;grid-template-areas:"icon tag" "icon text";
+      align-items:center;column-gap:13px;row-gap:2px;padding:11px 14px;text-align:left}
+    .mode-card .css-piece{grid-area:icon}
+    .mode-card .mode-tag{grid-area:tag;margin-bottom:0;align-self:end}
+    .mode-card strong{grid-area:tag;font-size:14px;margin-top:0;align-self:end}
+    .mode-card small{grid-area:text;font-size:11.5px;margin-top:0;align-self:start}
+    .mode-card .mode-tag{display:none}
     .css-piece{width:48px;height:30px}
     .css-piece i{width:13px;height:13px}
     .css-piece.drop i:nth-child(1){left:0;top:15px}.css-piece.drop i:nth-child(2){left:15px;top:15px}.css-piece.drop i:nth-child(3){left:30px;top:15px}.css-piece.drop i:nth-child(4){left:15px;top:0}
@@ -418,24 +424,29 @@
       </h1>
       <p class="intro-tagline" id="introTagline">손끝으로 쌓고, 소리로 길을 찾다.</p>
       <p class="intro-desc" id="introDesc">닷패드를 세로로 세우고, 화면 없이 플레이하세요.</p>
-      <div class="mode-choice" role="tablist" aria-label="게임 모드 선택">
-        <button class="mode-card" id="dropModeBtn" role="tab" aria-selected="true" type="button">
-          <span class="mode-tag">CLASSIC</span><span class="css-piece drop" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-          <strong id="dropModeName">낙하 모드</strong><small id="dropModeDesc">블록을 움직이고 회전해 가로줄을 완성하세요.</small>
+      <div class="mode-choice" role="tablist" aria-label="난이도 선택">
+        <button class="mode-card" id="diffPractice" role="tab" aria-selected="false" type="button">
+          <span class="mode-tag">PRACTICE</span><span class="css-piece drop" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          <strong id="diffPracticeName">연습</strong><small id="diffPracticeDesc">저절로 내려오지 않아요. 손끝으로 천천히 익혀보세요.</small>
         </button>
-        <button class="mode-card" id="puzzleModeBtn" role="tab" aria-selected="false" type="button">
-          <span class="mode-tag">PUZZLE</span><span class="css-piece puzzle" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-          <strong id="puzzleModeName">블록 퍼즐</strong><small id="puzzleModeDesc">블록을 원하는 위치에 놓아 가로·세로줄을 지우세요.</small>
+        <button class="mode-card" id="diffBasic" role="tab" aria-selected="true" type="button">
+          <span class="mode-tag">BASIC</span><span class="css-piece drop" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          <strong id="diffBasicName">기본</strong><small id="diffBasicDesc">아주 천천히 내려옵니다. 촉각으로 즐기기 좋아요.</small>
+        </button>
+        <button class="mode-card" id="diffChallenge" role="tab" aria-selected="false" type="button">
+          <span class="mode-tag">CHALLENGE</span><span class="css-piece drop" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          <strong id="diffChallengeName">도전</strong><small id="diffChallengeDesc">익숙한 테트리스 속도로 내려옵니다.</small>
         </button>
       </div>
       <div class="intro-actions">
         <button class="intro-start" id="startSelectedBtn" type="button">선택한 모드 시작</button>
         <div class="intro-actions-row">
+          <button class="intro-secondary" id="puzzleModeBtn" type="button"><span id="puzzleModeName">블록 퍼즐</span></button>
           <button class="intro-secondary" id="introConnectBtn" type="button"><span id="introDpLabel">닷패드 먼저 연결</span></button>
           <button class="btn icon" id="soundBtnIntro" type="button" aria-pressed="true" aria-label="음성 켜짐, 누르면 끔"></button>
         </div>
       </div>
-      <p class="intro-access" id="introAccess">Enter 시작 · 1/2 모드 선택</p>
+      <p class="intro-access" id="introAccess">Enter 시작 · 1/2/3 난이도 · P 블록 퍼즐</p>
     </div>
   </main>
 </section>
@@ -509,6 +520,7 @@
       <button class="toggle" id="sfxToggle" type="button" aria-pressed="true"><span id="sfxLabel">방향 효과음</span><span id="sfxState">켜짐</span></button>
       <button class="toggle" id="musicToggle" type="button" aria-pressed="true"><span id="musicLabel">절차형 배경음악</span><span id="musicState">켜짐</span></button>
       <button class="toggle" id="assistToggle" type="button" aria-pressed="true"><span id="assistLabel">촉각 친화 잠금 유예</span><span id="assistState">켜짐</span></button>
+      <button class="toggle" id="spawnHoldToggle" type="button" aria-pressed="false"><span id="spawnHoldLabel">새 블록 확인 시간</span><span id="spawnHoldState">꺼짐</span></button>
       <div class="speed-row"><label for="musicStyleSelect" id="musicStyleLabel">배경음악 스타일</label><select id="musicStyleSelect"><option value="procedural">기본 (앰비언트)</option><option value="retro">레트로 (칩튠)</option></select></div>
       <div class="speed-row"><label for="speedSelect" id="speedLabel">낙하 속도</label><select id="speedSelect"><option value="tactile">촉각 저속</option><option value="turn">촉각 턴제</option><option value="relaxed">여유</option><option value="standard">표준</option><option value="challenge">도전</option></select></div>
     </div></section>
@@ -547,10 +559,15 @@
   const $=id=>document.getElementById(id);
   const boardCanvas=$('board'),ctx=boardCanvas.getContext('2d');
   const status=$('status'),statusText=$('statusText'),criticalLive=$('criticalLive');
-  const dropModeBtn=$('dropModeBtn'),puzzleModeBtn=$('puzzleModeBtn');
+  const puzzleModeBtn=$('puzzleModeBtn');
+  /* The intro offers three difficulty presets instead of two game modes: the
+     drop game is the product, and the five-step speed list stays in settings
+     for anyone who wants to fine-tune. Puzzle drops back to a secondary game. */
+  const DIFFS=[{id:'diffPractice',speed:'turn'},{id:'diffBasic',speed:'tactile'},{id:'diffChallenge',speed:'standard'}];
+  let diffIndex=1;
   const newBtn=$('newBtn'),pauseBtn=$('pauseBtn'),helpBtn=$('helpBtn'),statusBtn=$('statusBtn'),scanBtn=$('scanBtn');
   const orientationBtn=$('orientationBtn'),dpBtn=$('dpBtn'),pinToggle=$('pinToggle');
-  const speechToggle=$('speechToggle'),sfxToggle=$('sfxToggle'),musicToggle=$('musicToggle'),assistToggle=$('assistToggle'),speedSelect=$('speedSelect'),musicStyleSelect=$('musicStyleSelect'),speechModeSelect=$('speechModeSelect');
+  const speechToggle=$('speechToggle'),sfxToggle=$('sfxToggle'),musicToggle=$('musicToggle'),assistToggle=$('assistToggle'),spawnHoldToggle=$('spawnHoldToggle'),speedSelect=$('speedSelect'),musicStyleSelect=$('musicStyleSelect'),speechModeSelect=$('speechModeSelect');
   const pinwrap=$('pinwrap'),pin=$('pin'),pctx=pin.getContext('2d');
   const introScreen=$('introScreen'),stage=$('stage'),startSelectedBtn=$('startSelectedBtn'),introConnectBtn=$('introConnectBtn');
   const homeBtn=$('homeBtn'),menuBtn=$('menuBtn'),drawerBackdrop=$('drawerBackdrop'),settingsDrawer=$('settingsDrawer'),drawerClose=$('drawerClose');
@@ -563,21 +580,25 @@
   const audio=(function(){
     const Engine=window.DotBlocksAudioEngine;
     if(typeof Engine==='function')return new Engine();
-    console.error('[DOT BLOCKS] audio-engine.js를 불러오지 못해 무음으로 실행합니다.');
-    const noop=()=>{};
-    return {ensure:noop,start:noop,stop:noop,pause:noop,duck:noop,earcon:noop,
-            setMusicEnabled:noop,setSfxEnabled:noop,setMusicStyle:noop};
+    console.error('[DOT BLOCKS] audio-engine.js를 불러오지 못해 무음으로 실행합니다. index.html만 따로 연 것이 아닌지 확인하세요.');
+    /* Mirror the full surface the game calls, so a missing engine degrades to
+       silence instead of throwing on the first call we forgot to stub. */
+    const noop=()=>{},stub={};
+    for(const m of ['ensure','start','stop','pause','duck','earcon','setDanger','setLevel',
+                    'setMode','setMusicEnabled','setMusicStyle','setSfxEnabled','setMusicVolume'])stub[m]=noop;
+    return stub;
   })();
   /* superdot-tts-core picks server-vs-browser voice from the hostname, and it
      only knows about github.io — anywhere else it calls /api/tts and 404s. The
      endpoint exists only on the Dot Games host, and we are only there when
      embedded, so drive it from frame detection instead. */
   if(window.SUPERDOT_TTS&&SUPERDOT_TTS.config){const embedded=window.parent!==window;SUPERDOT_TTS.config({serverFirst:embedded,retry:embedded})}
-  let settings={speech:true,speechMode:'superdot',sfx:true,music:true,assist:true,speed:'tactile',musicStyle:'procedural'};
+  let settings={speech:true,speechMode:'superdot',sfx:true,music:true,assist:true,spawnHold:false,speed:'tactile',musicStyle:'procedural'};
   try{settings={...settings,...JSON.parse(localStorage.getItem('dotblocks-settings')||'{}')}}catch(e){}
   settings.speed=['tactile','turn','relaxed','standard','challenge'].includes(settings.speed)?settings.speed:'tactile';
   settings.musicStyle=['procedural','retro'].includes(settings.musicStyle)?settings.musicStyle:'procedural';
   settings.speechMode=['superdot','screenreader','both'].includes(settings.speechMode)?settings.speechMode:'superdot';
+  settings.spawnHold=settings.spawnHold===true;
   audio.setMusicEnabled(settings.music);audio.setSfxEnabled(settings.sfx);audio.setMusicStyle(settings.musicStyle);
 
   let mode=null,running=false,paused=false,over=true,scanMode=false,scanResume=false,isAnimating=false;
@@ -585,7 +606,11 @@
   let sdk=null,scanner=null,KeyCodes=null,DataCodes=null,dpConnected=false;
   let dropTimer=0,dropLast=0,gravityAccumulator=0,groundedAt=0,lastDanger=0;
   let padMenu='intro',padSettingIndex=0,confirmAction='',confirmUntil=0;
-  const PAD_SETTING_KEYS=['speech','speechMode','sfx','music','assist','speed','musicStyle'];
+  /* Optional pause right after a piece appears, so the shape can be felt before
+     it starts falling. Off by default: it repeats 100+ times a round, and both
+     tactile-slow and turn-based already give more than enough time. */
+  let spawnHoldUntil=0;
+  const PAD_SETTING_KEYS=['speech','speechMode','sfx','music','assist','spawnHold','speed','musicStyle'];
 
   // Original palette, deliberately distinct from the canonical Tetris color scheme.
   // The board is monochrome on purpose: a DotPad pin is either raised or flat,
@@ -648,6 +673,8 @@
     const type=forcedType||nextType;if(!forcedType)nextType=randomBagPiece();const cells=SHAPES[type].map(v=>v.slice()),b=pieceBounds(cells);
     active={type,cells,x:Math.floor((DROP_W-b.w)/2),y:-Math.max(0,b.h-1),color:SHAPE_KEYS.indexOf(type)+1};holdUsed=false;groundedAt=0;renderNext();renderHold();
     if(collides(active,0,0,active.cells)){gameOver(S('블록이 위까지 쌓였어요.','Blocks reached the top.'));return false}
+    audio.earcon('piece',{piece:type,pan:panForColumn(active.x,DROP_W)});
+    spawnHoldUntil=(settings.spawnHold&&!first&&settings.speed!=='turn')?performance.now()+1400:0;
     if(!first){const gy=ghostY(),cols=pieceColumnRange(active);announce(S(PIECE_NAMES[type]+' 블록. '+cols+'. 예상 착지 '+(Math.min(DROP_H,gy+b.h))+'행. 다음 '+PIECE_NAMES[nextType]+'.',PIECE_NAMES[type]+' piece. '+cols+'. Expected landing row '+Math.min(DROP_H,gy+b.h)+'. Next: '+PIECE_NAMES[nextType]+'.'),{phase:dangerLevel()?'danger':'play',tts:true})}
     updateBoardAria();return true;
   }
@@ -691,7 +718,7 @@
     if(mode!=='drop'||!running||over)return;
     if(!paused&&!scanMode&&!isAnimating){
       const dt=Math.min(120,now-dropLast);
-      if(settings.speed!=='turn'){
+      if(settings.speed!=='turn'&&now>=spawnHoldUntil){
         gravityAccumulator+=dt;
         if(gravityAccumulator>=gravityInterval()){gravityAccumulator=0;moveDrop(0,1,{auto:true})}
         if(active&&collides(active,0,1,active.cells)){if(!groundedAt)groundedAt=now;if(now-groundedAt>=lockDelay())lockDrop()}else groundedAt=0
@@ -758,19 +785,31 @@
 
   // ---------- SCREEN FLOW ----------
   function showIntro(){padMenu='intro';clearConfirm();
-    cancelAnimationFrame(dropTimer);running=false;paused=false;scanMode=false;audio.stop();stopSpeech();closeDrawer();pauseOverlay.hidden=true;resultOverlay.hidden=true;stage.hidden=true;stage.setAttribute('aria-hidden','true');introScreen.hidden=false;introScreen.removeAttribute('aria-hidden');setTimeout(()=>dropModeBtn.focus(),0)
+    cancelAnimationFrame(dropTimer);running=false;paused=false;scanMode=false;audio.stop();stopSpeech();closeDrawer();pauseOverlay.hidden=true;resultOverlay.hidden=true;stage.hidden=true;stage.setAttribute('aria-hidden','true');introScreen.hidden=false;introScreen.removeAttribute('aria-hidden');setTimeout(()=>$(DIFFS[diffIndex].id).focus(),0)
   }
   function showPlay(){padMenu=null;clearConfirm();introScreen.hidden=true;introScreen.setAttribute('aria-hidden','true');stage.hidden=false;stage.setAttribute('aria-hidden','false');closeDrawer();pauseOverlay.hidden=true;resultOverlay.hidden=true;requestAnimationFrame(()=>{renderAll();boardCanvas.focus()})}
   function openDrawer(){drawerBackdrop.hidden=false;settingsDrawer.hidden=false;settingsDrawer.setAttribute('aria-hidden','false');menuBtn.setAttribute('aria-expanded','true');setTimeout(()=>drawerClose.focus(),0)}
   function closeDrawer(){if(!settingsDrawer)return;drawerBackdrop.hidden=true;settingsDrawer.hidden=true;settingsDrawer.setAttribute('aria-hidden','true');menuBtn.setAttribute('aria-expanded','false')}
-  function syncModeTitle(){const title=mode==='drop'?S('낙하 모드','Drop Mode'):S('블록 퍼즐','Block Puzzle');$('activeModeTitle').textContent=title+S(' · 세로 닷패드 40×60',' · Portrait DotPad 40×60');startSelectedBtn.textContent=S(title+' 시작','Start '+title)}
+  function diffName(i){return [S('연습','Practice'),S('기본','Basic'),S('도전','Challenge')][i]}
+  function syncModeTitle(){
+    const title=mode==='drop'?S('낙하 모드','Drop Mode')+' · '+diffName(diffIndex):S('블록 퍼즐','Block Puzzle');
+    $('activeModeTitle').textContent=title+S(' · 세로 닷패드 40×60',' · Portrait DotPad 40×60');
+    startSelectedBtn.textContent=mode==='drop'?S(diffName(diffIndex)+' 시작','Start '+diffName(diffIndex)):S('블록 퍼즐 시작','Start Block Puzzle');
+    DIFFS.forEach((d,i)=>$(d.id).setAttribute('aria-selected',String(mode==='drop'&&i===diffIndex)))
+  }
+  function setDifficulty(i,announceIt=true){
+    diffIndex=Math.max(0,Math.min(DIFFS.length-1,i));settings.speed=DIFFS[diffIndex].speed;
+    if(typeof syncSettingUI==='function')syncSettingUI();else saveSettings();
+    setMode('drop',false);syncModeTitle();
+    if(announceIt)speak(diffName(diffIndex)+'. '+$(DIFFS[diffIndex].id).querySelector('small').textContent)
+  }
   function showPauseState(){pauseOverlay.hidden=!paused;if(paused)setTimeout(()=>resumeBtn.focus(),0)}
   function showResult(reason){$('resultScore').textContent=mode==='drop'?score:pScore;$('resultReason').textContent=reason;resultOverlay.hidden=false;setTimeout(()=>restartBtn.focus(),0)}
 
   // ---------- SHARED GAME ----------
   function setMode(next,autoStart=false){
     if(next===mode&&!autoStart){stage.dataset.mode=next;syncModeTitle();return;}mode=next;stage.dataset.mode=mode;running=false;paused=false;over=true;scanMode=false;cancelAnimationFrame(dropTimer);audio.stop();if(mode==='drop'){dBoard=[];active=null;holdType=null}else{pBoard=[];pTray=[]}
-    dropModeBtn.setAttribute('aria-selected',String(mode==='drop'));puzzleModeBtn.setAttribute('aria-selected',String(mode==='puzzle'));syncModeTitle();trayCard.hidden=mode!=='puzzle';nextCard.hidden=mode!=='drop';holdCard.hidden=mode!=='drop';pauseBtn.hidden=mode==='puzzle';scanBtn.setAttribute('aria-pressed','false');portraitBadge.dataset.scan='0';
+    syncModeTitle();trayCard.hidden=mode!=='puzzle';nextCard.hidden=mode!=='drop';holdCard.hidden=mode!=='drop';pauseBtn.hidden=mode==='puzzle';scanBtn.setAttribute('aria-pressed','false');portraitBadge.dataset.scan='0';
     $('secondaryLabel').textContent=mode==='drop'?S('줄','Lines'):S('완성 줄','Clears');$('levelLabel').textContent=mode==='drop'?S('레벨','Level'):S('남은 블록','Pieces');
     $('helpText').innerHTML=mode==='drop'?S('<b>낙하 모드</b><br><span class="key">←</span><span class="key">→</span> 이동 · <span class="key">↑</span> 회전<br><span class="key">↓</span> 한 칸 · <span class="key">Space×2</span> 바로 내리기<br><span class="key">C</span> 보관 · <span class="key">S</span> 상태 · <span class="key">D</span> 상세<br><span class="key">V</span> 다음·보관 · <span class="key">Q</span> 표면 스캔','<b>Drop mode</b><br><span class="key">←</span><span class="key">→</span> move · <span class="key">↑</span> rotate<br><span class="key">↓</span> soft drop · <span class="key">Space×2</span> hard drop<br><span class="key">C</span> hold · <span class="key">S</span> status · <span class="key">Q</span> surface scan'):
       S('<b>블록 퍼즐</b><br><span class="key">방향키</span> 위치 이동 · <span class="key">R</span> 회전<br><span class="key">Tab</span> 블록 선택 · <span class="key">Space</span> 놓기<br><span class="key">S</span> 상태 · <span class="key">Q</span> 보드 스캔','<b>Block puzzle</b><br><span class="key">Arrows</span> move · <span class="key">R</span> rotate<br><span class="key">Tab</span> select · <span class="key">Space</span> place<br><span class="key">S</span> status · <span class="key">D</span> detail · <span class="key">V</span> next/hold · <span class="key">Q</span> board scan');
@@ -783,7 +822,7 @@
     boardCanvas.setAttribute('aria-label',mode==='drop'?S('낙하형 블록 게임. 시작 전.','Falling block game. Not started.'):S('블록 퍼즐 게임. 시작 전.','Block puzzle game. Not started.'));newBtn.querySelector('span').textContent=S('시작','Start');score=lines=pScore=pClears=0;updateHud();readBest();renderHold();
     announce(mode==='drop'?S('낙하 모드. 시작 버튼이나 엔터를 누르세요.','Drop mode. Press Start or Enter.'):S('블록 퍼즐 모드. 시작 버튼이나 엔터를 누르세요.','Block puzzle mode. Press Start or Enter.'),{phase:'ready',tts:false});if(mode==='drop')renderNext();else renderTray();renderAll();if(autoStart)newGame();
   }
-  function newGame(){tw('gameStart',{mode});ensureAudio();stopSpeech();pauseOverlay.hidden=true;resultOverlay.hidden=true;newBtn.querySelector('span').textContent=S('다시 시작','Restart');if(mode==='drop')initDrop();else initPuzzle()}
+  function newGame(){tw('gameStart',{mode});spawnHoldUntil=0;ensureAudio();stopSpeech();pauseOverlay.hidden=true;resultOverlay.hidden=true;newBtn.querySelector('span').textContent=S('다시 시작','Restart');if(mode==='drop')initDrop();else initPuzzle()}
   function togglePause(){if(mode!=='drop'||over||!running)return;paused=!paused;$('pauseLabel').textContent=paused?S('계속','Resume'):S('일시정지','Pause');if(paused)audio.pause();else audio.start();announce(paused?S('일시정지. 계속하기 버튼 또는 P 키를 누르세요.','Paused. Press Resume or P to continue.'):S('게임을 계속합니다.','Game resumed.'),{phase:paused?'ready':'play',tts:true});dropLast=performance.now();showPauseState();renderAll()}
   function gameOver(reason){tw('gameEnd',{mode,score:mode==='drop'?score:pScore,lines:mode==='drop'?lines:pClears,level});running=false;over=true;paused=false;scanMode=false;cancelAnimationFrame(dropTimer);setBest();audio.stop();audio.earcon('gameover');const finalText=reason+' '+S('최종 점수 ','Final score ')+(mode==='drop'?score:pScore)+S('점.',' points.');announce(finalText,{phase:'over',tts:true,critical:true});showResult(reason);renderAll();padPulse()}
   function tutorial(){
@@ -852,7 +891,11 @@
   function buildPortraitFrame(){const g=blankPortrait();if(mode==='drop'){if(flashRows.length){for(const y of flashRows)for(let x=0;x<DROP_W;x++)fillTactileCell(g,x,y,4,3,'flash');return g}
       if(scanMode){const heights=stackHeights();for(let x=0;x<DROP_W;x++){const y=Math.max(0,DROP_H-heights[x]);if(heights[x]>0)fillTactileCell(g,x,y,4,3,'surface')}if(active)for(const[cx,cy]of active.cells){const x=active.x+cx,y=active.y+cy;if(y>=0)fillTactileCell(g,x,y,4,3,'active')}}
       else{for(let y=0;y<DROP_H;y++)for(let x=0;x<DROP_W;x++)if(dBoard[y]&&dBoard[y][x])fillTactileCell(g,x,y,4,3,'solid');if(active){const gy=ghostY();for(const[cx,cy]of active.cells){const x=active.x+cx,y=gy+cy;if(y>=0)fillTactileCell(g,x,y,4,3,'ghost')}for(const[cx,cy]of active.cells){const x=active.x+cx,y=active.y+cy;if(y>=0)fillTactileCell(g,x,y,4,3,'active')}}}
-      if(dangerLevel()){for(let y=0;y<12;y+=3){setPin(g,0,y);setPin(g,39,y)}}
+      /* Danger rail on both edges. Level 1 (stack >=15) is a sparse dotted rail;
+         level 2 (>=18) doubles the density and runs deeper, so the escalation is
+         readable by touch alone without adding any moving pins. */
+      const dl=dangerLevel();
+      if(dl){const step=dl>1?2:3,depth=dl>1?20:12;for(let y=0;y<depth;y+=step){setPin(g,0,y);setPin(g,39,y)}}
     }else{
       for(let y=0;y<PUZZLE_H;y++)for(let x=0;x<PUZZLE_W;x++)if(pBoard[y]&&pBoard[y][x])fillTactileCell(g,x,y,5,5,'solid');const p=currentPuzzlePiece();if(p&&!p.used)for(const[cx,cy]of p.cells)fillTactileCell(g,cursorX+cx,cursorY+cy,5,5,canPlacePuzzle(p,cursorX,cursorY)?'active':'invalid');
     }return g}
@@ -907,11 +950,11 @@
   }
   function confirmedHardDrop(){return confirmActionTwice('hardDrop',S('즉시 낙하 확인. 1.8초 안에 같은 키를 한 번 더 누르세요.','Hard drop confirmation. Press the same key again within 1.8 seconds.'),hardDrop)}
   function confirmedRestart(){return confirmActionTwice('restart',S('다시 시작 확인. 1.8초 안에 F1을 한 번 더 누르세요.','Restart confirmation. Press F1 again within 1.8 seconds.'),newGame)}
-  function padSettingName(key){return {speech:S('음성 안내','speech guidance'),speechMode:S('음성 안내 방식','speech source'),sfx:S('방향 효과음','directional effects'),music:S('배경음악','music'),assist:S('잠금 유예','lock delay'),speed:S('낙하 방식','drop style'),musicStyle:S('음악 스타일','music style')}[key]}
+  function padSettingName(key){return {speech:S('음성 안내','speech guidance'),speechMode:S('음성 안내 방식','speech source'),sfx:S('방향 효과음','directional effects'),music:S('배경음악','music'),assist:S('잠금 유예','lock delay'),spawnHold:S('새 블록 확인 시간','new piece hold'),speed:S('낙하 방식','drop style'),musicStyle:S('음악 스타일','music style')}[key]}
   function padSettingValue(key){if(key==='speechMode')return {superdot:S('슈퍼닷 TTS','SuperDot TTS'),screenreader:S('스크린리더만','screen reader only'),both:S('둘 다','both')}[settings.speechMode];if(key==='speed')return {tactile:S('촉각 저속','tactile slow'),turn:S('촉각 턴제','tactile turn based'),relaxed:S('여유','relaxed'),standard:S('표준','standard'),challenge:S('도전','challenge')}[settings.speed];if(key==='musicStyle')return settings.musicStyle==='retro'?S('레트로','retro'):S('앰비언트','ambient');return settings[key]?S('켜짐','on'):S('꺼짐','off')}
   function announcePadSetting(){const key=PAD_SETTING_KEYS[padSettingIndex];speak((padSettingIndex+1)+'/'+PAD_SETTING_KEYS.length+'. '+padSettingName(key)+', '+padSettingValue(key)+'. '+S('F1 이전, F2 다음, F3 변경, F4 닫기.','F1 previous, F2 next, F3 change, F4 close.'))}
   function syncSettingUI(){
-    setToggle(speechToggle,'speechState',settings.speech);setToggle(sfxToggle,'sfxState',settings.sfx);setToggle(musicToggle,'musicState',settings.music);setToggle(assistToggle,'assistState',settings.assist);
+    setToggle(speechToggle,'speechState',settings.speech);setToggle(sfxToggle,'sfxState',settings.sfx);setToggle(musicToggle,'musicState',settings.music);setToggle(assistToggle,'assistState',settings.assist);setToggle(spawnHoldToggle,'spawnHoldState',settings.spawnHold);
     speechModeSelect.value=settings.speechMode;speedSelect.value=settings.speed;musicStyleSelect.value=settings.musicStyle;syncSpeechModeAria();syncSoundBtn();saveSettings()
   }
   function enterPadSettings(){padMenu='settings';padSettingIndex=0;clearConfirm();announcePadSetting()}
@@ -923,15 +966,16 @@
     if(!KeyCodes)return;document.body.classList.add('kbd');ensureAudio();
     if(padMenu==='settings'){handlePadSettingsKey(keyCode);return}
     if(!introScreen.hidden){
-      if(keyCode===KeyCodes.KeyFunction1){setMode('drop',false);showPlay();newGame()}
-      else if(keyCode===KeyCodes.KeyFunction2){setMode('puzzle',false);showPlay();newGame()}
+      if(keyCode===KeyCodes.KeyFunction1){showPlay();newGame()}
+      else if(keyCode===KeyCodes.KeyFunction2){setDifficulty((diffIndex+1)%DIFFS.length)}
       else if(keyCode===KeyCodes.KeyFunction3){tutorial()}
       else if(keyCode===KeyCodes.KeyFunction4){enterPadSettings()}
+      else if(keyCode===KeyCodes.KeyFunction12){puzzleModeBtn.click();showPlay();newGame()}
       return
     }
     if(over){
       if(keyCode===KeyCodes.KeyFunction1||keyCode===KeyCodes.LPF1)confirmedRestart();
-      else if(keyCode===KeyCodes.KeyFunction2){showIntro();speak(S('모드 선택. F1 낙하, F2 퍼즐, F3 도움말, F4 설정.','Mode selection. F1 drop, F2 puzzle, F3 help, F4 settings.'))}
+      else if(keyCode===KeyCodes.KeyFunction2){showIntro();speak(S('처음 화면. F1 시작, F2 난이도 바꾸기, F3 도움말, F4 설정.','Intro. F1 start, F2 change difficulty, F3 help, F4 settings.'))}
       else if(keyCode===KeyCodes.KeyFunction4)enterPadSettings();
       return
     }
@@ -942,15 +986,16 @@
       if(keyCode===KeyCodes.KeyFunction1)movePuzzle(-1,0);else if(keyCode===KeyCodes.KeyFunction2)movePuzzle(1,0);else if(keyCode===KeyCodes.KeyFunction3)movePuzzle(0,-1);else if(keyCode===KeyCodes.KeyFunction4)movePuzzle(0,1);else if(keyCode===KeyCodes.PanningLeft)rotatePuzzle();else if(keyCode===KeyCodes.PanningRight)cyclePuzzle();else if(keyCode===KeyCodes.PanningAll||keyCode===KeyCodes.KeyFunction23)placePuzzle();else if(keyCode===KeyCodes.KeyFunction12)readPuzzleStatus(true);else if(keyCode===KeyCodes.RPF4)readPuzzleStatus(false);else if(keyCode===KeyCodes.LPF1)confirmedRestart()
     }
   }
-  async function loadSDK(){try{const m=await import('./dotpad-sdk/DotPadSDK-3.0.0.js');KeyCodes=m.KeyCodes;DataCodes=m.DataCodes;sdk=new m.DotPadSDK();scanner=new m.DotPadScanner();sdk.setCallBack((device,code)=>{if(code===DataCodes.Connected){dpConnected=true;setDpUI(true);setTimeout(()=>{try{sdk.displayAllDown();setTimeout(renderPad,250)}catch(e){}},180)}else if(code===DataCodes.Disconnected){dpConnected=false;setDpUI(false)}},(device,keyCode)=>handleDotPadKey(keyCode));return true}catch(e){console.error(e);return false}}
-  function setDpUI(on){dpBtn.dataset.on=on?'1':'0';$('dpLabel').textContent=on?S('닷패드 연결됨','DotPad connected'):S('닷패드 연결','Connect DotPad');$('introDpLabel').textContent=on?S('닷패드 연결됨','DotPad connected'):S('닷패드 먼저 연결','Connect DotPad first');if(on){padMenu=introScreen.hidden?null:'intro';speak(S('닷패드가 연결됐어요. 기기를 세로로 세우세요. 인트로에서는 F1 낙하 모드, F2 블록 퍼즐, F3 도움말, F4 설정입니다.','DotPad connected. Stand it vertically. On the intro screen, F1 is Drop Mode, F2 Block Puzzle, F3 Help, and F4 Settings.'))}}
-  async function connectDotPad(){if(!navigator.bluetooth){announce(S('이 브라우저는 블루투스를 지원하지 않아요. 크롬이나 엣지에서 열어 주세요.','Bluetooth is not supported. Open in Chrome or Edge.'),{phase:'ready',tts:true});return}if(!sdk){await loadSDK();if(!sdk){announce(S('닷패드 SDK를 불러오지 못했어요.','Could not load the DotPad SDK.'),{phase:'ready',tts:true});return}}try{let dev=null;try{dev=await navigator.bluetooth.requestDevice({filters:[{namePrefix:'DotPad'},{namePrefix:'KM2-'},{namePrefix:'KM3-'},{namePrefix:'DPK'},{namePrefix:'DMI'}],optionalServices:[scanner.DOTPAD_SERVICE]})}catch(e){if(e.name==='NotFoundError')dev=await navigator.bluetooth.requestDevice({acceptAllDevices:true,optionalServices:[scanner.DOTPAD_SERVICE]});else throw e}if(dev){announce(S('닷패드에 연결 중…','Connecting to DotPad…'),{phase:'ready',tts:false});await sdk.connectBleDevice(dev)}}catch(e){if(e.name!=='NotFoundError')announce(S('닷패드 연결 실패: ','DotPad connection failed: ')+(e.message||e.name),{phase:'ready',tts:true})}}
+  async function loadSDK(){try{const m=await import(new URL('./dotpad-sdk/DotPadSDK-3.0.0.js',document.baseURI).href);KeyCodes=m.KeyCodes;DataCodes=m.DataCodes;sdk=new m.DotPadSDK();scanner=new m.DotPadScanner();sdk.setCallBack((device,code)=>{if(code===DataCodes.Connected){dpConnected=true;setDpUI(true);setTimeout(()=>{try{sdk.displayAllDown();setTimeout(renderPad,250)}catch(e){}},180)}else if(code===DataCodes.Disconnected){dpConnected=false;setDpUI(false)}},(device,keyCode)=>handleDotPadKey(keyCode));return true}catch(e){console.error('[DOT BLOCKS] dotpad-sdk/DotPadSDK-3.0.0.js를 불러오지 못했습니다. index.html은 단독 파일이 아니라 audio-engine.js·tts.js·superdot-tts-core.js 등 형제 파일과 같은 폴더에 있어야 합니다.',e);return false}}
+  function setDpUI(on){dpBtn.dataset.on=on?'1':'0';$('dpLabel').textContent=on?S('닷패드 연결됨','DotPad connected'):S('닷패드 연결','Connect DotPad');$('introDpLabel').textContent=on?S('닷패드 연결됨','DotPad connected'):S('닷패드 먼저 연결','Connect DotPad first');if(on){padMenu=introScreen.hidden?null:'intro';speak(S('닷패드가 연결됐어요. 기기를 세로로 세우세요. 인트로에서는 F1 시작, F2 난이도 바꾸기, F3 도움말, F4 설정, F1+F2 블록 퍼즐입니다.','DotPad connected. Stand it vertically. On the intro screen, F1 starts, F2 changes difficulty, F3 help, F4 settings, F1 plus F2 Block Puzzle.'))}}
+  async function connectDotPad(){if(!navigator.bluetooth){announce(S('이 브라우저는 블루투스를 지원하지 않아요. 크롬이나 엣지에서 열어 주세요.','Bluetooth is not supported. Open in Chrome or Edge.'),{phase:'ready',tts:true});return}if(!sdk){await loadSDK();if(!sdk){announce(S('닷패드 SDK 파일을 찾지 못했어요. 게임 폴더 전체를 함께 열어야 합니다.','Could not find the DotPad SDK file. The whole game folder needs to be served together.'),{phase:'ready',tts:true});return}}try{let dev=null;try{dev=await navigator.bluetooth.requestDevice({filters:[{namePrefix:'DotPad'},{namePrefix:'KM2-'},{namePrefix:'KM3-'},{namePrefix:'DPK'},{namePrefix:'DMI'}],optionalServices:[scanner.DOTPAD_SERVICE]})}catch(e){if(e.name==='NotFoundError')dev=await navigator.bluetooth.requestDevice({acceptAllDevices:true,optionalServices:[scanner.DOTPAD_SERVICE]});else throw e}if(dev){announce(S('닷패드에 연결 중…','Connecting to DotPad…'),{phase:'ready',tts:false});await sdk.connectBleDevice(dev)}}catch(e){if(e.name!=='NotFoundError')announce(S('닷패드 연결 실패: ','DotPad connection failed: ')+(e.message||e.name),{phase:'ready',tts:true})}}
 
   // ---------- INPUT / UI ----------
-  document.addEventListener('keydown',ev=>{const k=ev.key;document.body.classList.add('kbd');ensureAudio();if(!introScreen.hidden){if(k==='1'){setMode('drop',false);ev.preventDefault();return}if(k==='2'){setMode('puzzle',false);ev.preventDefault();return}if(k==='Enter'){showPlay();newGame();ev.preventDefault();return}}if(k==='Escape'&&!settingsDrawer.hidden){closeDrawer();ev.preventDefault();return}if(k==='1'){setMode('drop',true);ev.preventDefault();return}if(k==='2'){setMode('puzzle',true);ev.preventDefault();return}if(k==='h'||k==='H'||k==='?'){tutorial();ev.preventDefault();return}if(k==='n'||k==='N'){confirmedRestart();ev.preventDefault();return}if(k==='o'||k==='O'){toggleOrientation();ev.preventDefault();return}if(k==='s'||k==='S'){readStatus(false);ev.preventDefault();return}if(k==='d'||k==='D'){readStatus(true);ev.preventDefault();return}if(k==='v'||k==='V'){readNextHold();ev.preventDefault();return}if(k==='q'||k==='Q'){toggleScan();ev.preventDefault();return}if(k==='Enter'&&over){confirmedRestart();ev.preventDefault();return}
+  document.addEventListener('keydown',ev=>{const k=ev.key;document.body.classList.add('kbd');ensureAudio();if(!introScreen.hidden){if(k==='1'||k==='2'||k==='3'){setDifficulty(Number(k)-1);ev.preventDefault();return}if(k==='p'||k==='P'){puzzleModeBtn.click();ev.preventDefault();return}if(k==='Enter'){showPlay();newGame();ev.preventDefault();return}}if(k==='Escape'&&!settingsDrawer.hidden){closeDrawer();ev.preventDefault();return}if(k==='1'){setMode('drop',true);ev.preventDefault();return}if(k==='2'){setMode('puzzle',true);ev.preventDefault();return}if(k==='h'||k==='H'||k==='?'){tutorial();ev.preventDefault();return}if(k==='n'||k==='N'){confirmedRestart();ev.preventDefault();return}if(k==='o'||k==='O'){toggleOrientation();ev.preventDefault();return}if(k==='s'||k==='S'){readStatus(false);ev.preventDefault();return}if(k==='d'||k==='D'){readStatus(true);ev.preventDefault();return}if(k==='v'||k==='V'){readNextHold();ev.preventDefault();return}if(k==='q'||k==='Q'){toggleScan();ev.preventDefault();return}if(k==='Enter'&&over){confirmedRestart();ev.preventDefault();return}
     if(mode==='drop'){if(k==='ArrowLeft')moveDrop(-1,0);else if(k==='ArrowRight')moveDrop(1,0);else if(k==='ArrowDown')moveDrop(0,1);else if(k==='ArrowUp'||k==='x'||k==='X')rotateDrop();else if(k===' ')confirmedHardDrop();else if(k==='c'||k==='C')holdDrop();else if(k==='p'||k==='P')togglePause();else return;ev.preventDefault()}
     else{if(k==='ArrowLeft')movePuzzle(-1,0);else if(k==='ArrowRight')movePuzzle(1,0);else if(k==='ArrowUp')movePuzzle(0,-1);else if(k==='ArrowDown')movePuzzle(0,1);else if(k==='r'||k==='R')rotatePuzzle();else if(k==='Tab')cyclePuzzle();else if(k===' '||k==='Enter')placePuzzle();else return;ev.preventDefault()}});
-  dropModeBtn.addEventListener('click',()=>setMode('drop',false));puzzleModeBtn.addEventListener('click',()=>setMode('puzzle',false));startSelectedBtn.addEventListener('click',()=>{showPlay();newGame()});introConnectBtn.addEventListener('click',connectDotPad);homeBtn.addEventListener('click',()=>{tw('exit');showIntro()});menuBtn.addEventListener('click',openDrawer);drawerClose.addEventListener('click',closeDrawer);drawerBackdrop.addEventListener('click',closeDrawer);resumeBtn.addEventListener('click',togglePause);pauseHomeBtn.addEventListener('click',showIntro);restartBtn.addEventListener('click',()=>{resultOverlay.hidden=true;newGame()});resultHomeBtn.addEventListener('click',showIntro);newBtn.addEventListener('click',()=>{closeDrawer();newGame()});pauseBtn.addEventListener('click',togglePause);helpBtn.addEventListener('click',tutorial);statusBtn.addEventListener('click',()=>readStatus(false));scanBtn.addEventListener('click',toggleScan);dpBtn.addEventListener('click',connectDotPad);
+  DIFFS.forEach((d,i)=>$(d.id).addEventListener('click',()=>setDifficulty(i)));
+  puzzleModeBtn.addEventListener('click',()=>{setMode('puzzle',false);syncModeTitle();speak(S('블록 퍼즐. 추가 게임입니다.','Block Puzzle. Bonus game.'))});startSelectedBtn.addEventListener('click',()=>{showPlay();newGame()});introConnectBtn.addEventListener('click',connectDotPad);homeBtn.addEventListener('click',()=>{tw('exit');showIntro()});menuBtn.addEventListener('click',openDrawer);drawerClose.addEventListener('click',closeDrawer);drawerBackdrop.addEventListener('click',closeDrawer);resumeBtn.addEventListener('click',togglePause);pauseHomeBtn.addEventListener('click',showIntro);restartBtn.addEventListener('click',()=>{resultOverlay.hidden=true;newGame()});resultHomeBtn.addEventListener('click',showIntro);newBtn.addEventListener('click',()=>{closeDrawer();newGame()});pauseBtn.addEventListener('click',togglePause);helpBtn.addEventListener('click',tutorial);statusBtn.addEventListener('click',()=>readStatus(false));scanBtn.addEventListener('click',toggleScan);dpBtn.addEventListener('click',connectDotPad);
   function toggleOrientation(){rotateDir=rotateDir==='cw'?'ccw':'cw';$('orientationLabel').textContent=rotateDir==='cw'?S('회전: 오른쪽','Rotate: right'):S('회전: 왼쪽','Rotate: left');renderPad();speak(rotateDir==='cw'?S('오른쪽으로 돌려 세우는 방향입니다.','Use clockwise portrait rotation.'):S('왼쪽으로 돌려 세우는 방향입니다.','Use counterclockwise portrait rotation.'))}
   orientationBtn.addEventListener('click',toggleOrientation);
   /* ── Sound toggle (Dot Games common component) ──────────────────────
@@ -994,6 +1039,7 @@
   speechToggle.addEventListener('click',()=>{settings.speech=!settings.speech;syncSettingUI();syncSoundBtn();if(settings.speech)speak(S('음성 안내를 켰어요.','Speech guidance on.'));else stopSpeech()});
   sfxToggle.addEventListener('click',()=>{settings.sfx=!settings.sfx;audio.setSfxEnabled(settings.sfx);setToggle(sfxToggle,'sfxState',settings.sfx);saveSettings();if(settings.sfx)audio.earcon('start')});
   musicToggle.addEventListener('click',()=>{settings.music=!settings.music;audio.setMusicEnabled(settings.music);setToggle(musicToggle,'musicState',settings.music);saveSettings();if(settings.music&&running&&!paused)audio.start()});
+  spawnHoldToggle.addEventListener('click',()=>{settings.spawnHold=!settings.spawnHold;syncSettingUI();speak(settings.spawnHold?S('새 블록이 나오면 1.4초 동안 멈춰서 모양을 확인할 수 있어요.','New pieces pause for 1.4 seconds so you can feel the shape.'):S('새 블록 확인 시간을 껐어요.','New piece hold off.'))});
   assistToggle.addEventListener('click',()=>{settings.assist=!settings.assist;setToggle(assistToggle,'assistState',settings.assist);saveSettings();speak(settings.assist?S('촉각 친화 잠금 유예를 켰어요.','Tactile-friendly lock delay on.'):S('잠금 유예를 짧게 설정했어요.','Short lock delay selected.'))});
   speechModeSelect.value=settings.speechMode;speechModeSelect.addEventListener('change',()=>{settings.speechMode=speechModeSelect.value;syncSettingUI();speak(S('음성 안내 방식을 변경했습니다.','Speech source changed.'))});
   musicStyleSelect.value=settings.musicStyle;musicStyleSelect.addEventListener('change',()=>{settings.musicStyle=musicStyleSelect.value;audio.setMusicStyle(settings.musicStyle);saveSettings();speak(settings.musicStyle==='retro'?S('레트로 칩튠 배경음악으로 바꿨어요.','Switched to retro chiptune music.'):S('기본 앰비언트 배경음악으로 바꿨어요.','Switched to the default ambient music.'))});
@@ -1007,8 +1053,9 @@
   window.addEventListener('resize',()=>{clearTimeout(window.__dbRz);window.__dbRz=setTimeout(()=>{renderAll();twSize()},100)});document.addEventListener('visibilitychange',()=>{if(!stage.hidden&&document.hidden&&mode==='drop'&&running&&!over&&!paused){paused=true;audio.pause();$('pauseLabel').textContent=S('계속','Resume');showPauseState();announce(S('앱이 백그라운드로 이동해 자동 일시정지했습니다.','Automatically paused while the app is in the background.'),{phase:'ready',tts:false})}});document.addEventListener('pointerdown',()=>document.body.classList.remove('kbd'));document.body.addEventListener('pointerdown',function once(){ensureAudio();try{speechSynthesis.resume()}catch(e){}document.body.removeEventListener('pointerdown',once)},{once:true});
   window.getDotpadFrame=()=>encodeHardware(portraitToHardware(buildPortraitFrame()));window.getPortraitFrame=()=>buildPortraitFrame();window.getAccessibilityState=()=>({mode,scanMode,settings:{...settings},danger:mode==='drop'?dangerLevel():0,frameLength:window.getDotpadFrame().length,brailleLine:brailleLine()});
 
-  function applyLang(){if(LANG!=='en')return;document.documentElement.lang='en';document.title='DOT BLOCKS';$('blindBadge').textContent='BLIND-FIRST';$('scoreTitle').textContent='Game Stats';$('scoreLabel').textContent='Score';$('secondaryLabel').textContent='Lines';$('levelLabel').textContent='Level';$('bestLabel').textContent='Best';$('nextTitle').textContent='Next Piece';$('holdTitle').textContent='Held Piece';$('holdHint').textContent='C / F1+F2';$('verticalTitle').textContent='Portrait DotPad';$('orientationText').innerHTML='<strong>40×60 logical pins</strong> rotate automatically into the physical 60×40 output. Stand the DotPad with controls at the bottom.';$('legend').innerHTML='<span class="legend-sample solid" aria-hidden="true"></span><span>Compact dense tile: settled block</span><span class="legend-sample outline" aria-hidden="true"></span><span>Large hollow outline: moving piece</span><span class="legend-sample ghost" aria-hidden="true"></span><span>Two dots: landing preview</span>';$('trayTitle').textContent='Pieces';$('controlsTitle').textContent='Controls';$('padKeysTitle').textContent='DotPad Keys';$('accessTitle').textContent='Audio & Accessibility';$('speechLabel').textContent='Speech guidance';$('speechModeLabel').textContent='Speech source';speechModeSelect.options[0].text='SuperDot TTS';speechModeSelect.options[1].text='Screen reader only';speechModeSelect.options[2].text='Both';$('sfxLabel').textContent='Directional earcons';$('musicLabel').textContent='Procedural music';$('assistLabel').textContent='Tactile-friendly lock delay';$('speedLabel').textContent='Drop speed';speedSelect.options[0].text='Tactile slow';speedSelect.options[1].text='Tactile turn-based';speedSelect.options[2].text='Relaxed';speedSelect.options[3].text='Standard';speedSelect.options[4].text='Challenge';$('musicStyleLabel').textContent='Music style';musicStyleSelect.options[0].text='Default (ambient)';musicStyleSelect.options[1].text='Retro (chiptune)';$('newLabel').textContent='Start';$('pauseLabel').textContent='Pause';$('statusLabel').textContent='Status';$('scanLabel').textContent='Surface scan';$('helpLabel').textContent='How to play';$('orientationLabel').textContent=rotateDir==='cw'?'Rotate: right':'Rotate: left';$('dpLabel').textContent='Connect DotPad';$('introDpLabel').textContent='Connect DotPad first';$('pinLabel').textContent='Pin preview';$('playHelp').textContent='← → move · ↑ rotate · ↓ soft drop · Space×2 hard drop · C hold';syncSoundBtn();$('pinCap').innerHTML='Portrait 40×60<br>compact=settled · hollow=current · two dots=landing';$('introTitleText').textContent='DOT BLOCKS';$('introEyebrow').textContent='Tactile block game';$('introTagline').textContent='Build by touch, navigate by sound.';$('introDesc').textContent='Stand the DotPad upright and play without the screen.';$('dropModeName').textContent='Drop Mode';$('dropModeDesc').textContent='Move and rotate pieces to complete horizontal lines.';$('puzzleModeName').textContent='Block Puzzle';$('puzzleModeDesc').textContent='Place pieces to clear horizontal and vertical lines.';$('introAccess').textContent='Enter to start · 1/2 to pick a mode';$('settingsTitle').textContent='Game Settings';$('pauseTitle').textContent='Paused';$('pauseDesc').textContent='The game and falling piece are paused. The current DotPad pin state is preserved.';$('resumeBtn').textContent='Resume';$('pauseHomeBtn').textContent='Back to Intro';$('resultTitle').textContent='Game Over';$('restartBtn').textContent='Play Again';$('resultHomeBtn').textContent='Choose Another Mode';setToggle(speechToggle,'speechState',settings.speech);setToggle(sfxToggle,'sfxState',settings.sfx);setToggle(musicToggle,'musicState',settings.music);setToggle(assistToggle,'assistState',settings.assist)}
+  function applyLang(){if(LANG!=='en')return;document.documentElement.lang='en';document.title='DOT BLOCKS';$('blindBadge').textContent='BLIND-FIRST';$('scoreTitle').textContent='Game Stats';$('scoreLabel').textContent='Score';$('secondaryLabel').textContent='Lines';$('levelLabel').textContent='Level';$('bestLabel').textContent='Best';$('nextTitle').textContent='Next Piece';$('holdTitle').textContent='Held Piece';$('holdHint').textContent='C / F1+F2';$('verticalTitle').textContent='Portrait DotPad';$('orientationText').innerHTML='<strong>40×60 logical pins</strong> rotate automatically into the physical 60×40 output. Stand the DotPad with controls at the bottom.';$('legend').innerHTML='<span class="legend-sample solid" aria-hidden="true"></span><span>Compact dense tile: settled block</span><span class="legend-sample outline" aria-hidden="true"></span><span>Large hollow outline: moving piece</span><span class="legend-sample ghost" aria-hidden="true"></span><span>Two dots: landing preview</span>';$('trayTitle').textContent='Pieces';$('controlsTitle').textContent='Controls';$('padKeysTitle').textContent='DotPad Keys';$('accessTitle').textContent='Audio & Accessibility';$('speechLabel').textContent='Speech guidance';$('speechModeLabel').textContent='Speech source';speechModeSelect.options[0].text='SuperDot TTS';speechModeSelect.options[1].text='Screen reader only';speechModeSelect.options[2].text='Both';$('sfxLabel').textContent='Directional earcons';$('musicLabel').textContent='Procedural music';$('assistLabel').textContent='Tactile-friendly lock delay';$('spawnHoldLabel').textContent='New piece hold';$('speedLabel').textContent='Drop speed';speedSelect.options[0].text='Tactile slow';speedSelect.options[1].text='Tactile turn-based';speedSelect.options[2].text='Relaxed';speedSelect.options[3].text='Standard';speedSelect.options[4].text='Challenge';$('musicStyleLabel').textContent='Music style';musicStyleSelect.options[0].text='Default (ambient)';musicStyleSelect.options[1].text='Retro (chiptune)';$('newLabel').textContent='Start';$('pauseLabel').textContent='Pause';$('statusLabel').textContent='Status';$('scanLabel').textContent='Surface scan';$('helpLabel').textContent='How to play';$('orientationLabel').textContent=rotateDir==='cw'?'Rotate: right':'Rotate: left';$('dpLabel').textContent='Connect DotPad';$('introDpLabel').textContent='Connect DotPad first';$('pinLabel').textContent='Pin preview';$('playHelp').textContent='← → move · ↑ rotate · ↓ soft drop · Space×2 hard drop · C hold';syncSoundBtn();$('pinCap').innerHTML='Portrait 40×60<br>compact=settled · hollow=current · two dots=landing';$('introTitleText').textContent='DOT BLOCKS';$('introEyebrow').textContent='Tactile block game';$('introTagline').textContent='Build by touch, navigate by sound.';$('introDesc').textContent='Stand the DotPad upright and play without the screen.';$('diffPracticeName').textContent='Practice';$('diffPracticeDesc').textContent='Nothing falls on its own. Take your time and feel it out.';$('diffBasicName').textContent='Basic';$('diffBasicDesc').textContent='Falls very slowly. Best for playing by touch.';$('diffChallengeName').textContent='Challenge';$('diffChallengeDesc').textContent='Falls at familiar Tetris speed.';$('puzzleModeName').textContent='Block Puzzle';$('introAccess').textContent='Enter to start · 1/2/3 difficulty · P Block Puzzle';$('settingsTitle').textContent='Game Settings';$('pauseTitle').textContent='Paused';$('pauseDesc').textContent='The game and falling piece are paused. The current DotPad pin state is preserved.';$('resumeBtn').textContent='Resume';$('pauseHomeBtn').textContent='Back to Intro';$('resultTitle').textContent='Game Over';$('restartBtn').textContent='Play Again';$('resultHomeBtn').textContent='Choose Another Mode';setToggle(speechToggle,'speechState',settings.speech);setToggle(sfxToggle,'sfxState',settings.sfx);setToggle(musicToggle,'musicState',settings.music);setToggle(assistToggle,'assistState',settings.assist)}
 
+  {const i=DIFFS.findIndex(d=>d.speed===settings.speed);if(i>=0)diffIndex=i}
   applyLang();syncSoundBtn();setMode(params.get('mode')==='puzzle'?'puzzle':'drop',false);showIntro();loadSDK();if(params.get('preview')==='1'){pinwrap.classList.add('show');pinToggle.setAttribute('aria-pressed','true');drawPin()}
   tw('ready',{modes:['drop','puzzle'],lang:LANG});twSize();
 })();

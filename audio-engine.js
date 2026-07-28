@@ -327,6 +327,23 @@
           for (let i = 0; i < count + 2; i++) this.tone(440 * Math.pow(2, i / 7), 0.105, now + i * 0.075, 'triangle', 0.105, this.sfxBus, -0.75 + i * 0.3);
           break;
         }
+        /* Per-piece audio icons. Sine only, 480–900Hz: `move`/`hard`/`blocked`
+           are square, `rotate`/`soft`/`lock`/`clear` are triangle, and the only
+           other sine cues sit far below (ground 180, danger 92), so these read
+           as their own family. Kept to 0.25–0.33s so they finish well before
+           the next input even at challenge speed. */
+        case 'piece': {
+          const p = String(options.piece || 'I').toUpperCase();
+          const g = 0.085, w = 'sine', B = this.sfxBus;
+          if (p === 'I') this.tone(660, 0.3, now, w, g, B, x);
+          else if (p === 'O') { this.tone(740, 0.08, now, w, g, B, x); this.tone(740, 0.08, now + 0.13, w, g, B, x) }
+          else if (p === 'T') { this.tone(600, 0.075, now, w, g, B, x); this.tone(840, 0.085, now + 0.095, w, g, B, x); this.tone(600, 0.075, now + 0.2, w, g, B, x) }
+          else if (p === 'L') { this.tone(540, 0.1, now, w, g, B, x); this.tone(830, 0.14, now + 0.11, w, g, B, x) }
+          else if (p === 'J') { this.tone(830, 0.1, now, w, g, B, x); this.tone(540, 0.14, now + 0.11, w, g, B, x) }
+          else if (p === 'S') { this.tone(700, 0.1, now, w, g, B, -0.6); this.tone(620, 0.13, now + 0.12, w, g, B, 0.6) }
+          else if (p === 'Z') { this.tone(700, 0.1, now, w, g, B, 0.6); this.tone(620, 0.13, now + 0.12, w, g, B, -0.6) }
+          break;
+        }
         case 'danger':
           this.tone(92, 0.12, now, 'sine', 0.15, this.sfxBus, 0);
           this.tone(92, 0.12, now + 0.2, 'sine', 0.12, this.sfxBus, 0);
