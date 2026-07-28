@@ -439,14 +439,14 @@
         </button>
       </div>
       <div class="intro-actions">
-        <button class="intro-start" id="startSelectedBtn" type="button">선택한 모드 시작</button>
+        <button class="intro-start" id="introConnectBtn" type="button"><span id="introDpLabel">닷패드 연결하고 시작</span></button>
         <div class="intro-actions-row">
-          <button class="intro-secondary" id="puzzleModeBtn" type="button"><span id="puzzleModeName">블록 퍼즐</span></button>
-          <button class="intro-secondary" id="introConnectBtn" type="button"><span id="introDpLabel">닷패드 먼저 연결</span></button>
+          <button class="intro-secondary" id="startSelectedBtn" type="button">닷패드 없이 시작</button>
+          <button class="intro-secondary" id="puzzleModeBtn" type="button"><span id="puzzleModeName">추가 모드 · 블록 퍼즐</span></button>
           <button class="btn icon" id="soundBtnIntro" type="button" aria-pressed="true" aria-label="음성 켜짐, 누르면 끔"></button>
         </div>
       </div>
-      <p class="intro-access" id="introAccess">Enter 시작 · 1/2/3 난이도 · P 블록 퍼즐</p>
+      <p class="intro-access" id="introAccess">Enter 닷패드 없이 시작 · 1/2/3 난이도 · P 블록 퍼즐</p>
     </div>
   </main>
 </section>
@@ -520,8 +520,8 @@
       <button class="toggle" id="sfxToggle" type="button" aria-pressed="true"><span id="sfxLabel">방향 효과음</span><span id="sfxState">켜짐</span></button>
       <button class="toggle" id="musicToggle" type="button" aria-pressed="true"><span id="musicLabel">절차형 배경음악</span><span id="musicState">켜짐</span></button>
       <button class="toggle" id="assistToggle" type="button" aria-pressed="true"><span id="assistLabel">촉각 친화 잠금 유예</span><span id="assistState">켜짐</span></button>
-      <button class="toggle" id="spawnHoldToggle" type="button" aria-pressed="false"><span id="spawnHoldLabel">새 블록 확인 시간</span><span id="spawnHoldState">꺼짐</span></button>
-      <div class="speed-row"><label for="musicStyleSelect" id="musicStyleLabel">배경음악 스타일</label><select id="musicStyleSelect"><option value="procedural">기본 (앰비언트)</option><option value="retro">레트로 (칩튠)</option></select></div>
+      <button class="toggle" id="spawnHoldToggle" type="button" aria-pressed="false"><span id="spawnHoldLabel">새 블록 항상 정지</span><span id="spawnHoldState">꺼짐</span></button>
+      <div class="speed-row"><label for="musicStyleSelect" id="musicStyleLabel">배경음악 스타일</label><select id="musicStyleSelect"><option value="procedural">기본 (오리지널 앰비언트/칩튠)</option><option value="retro">레트로 클래식 (보조)</option></select></div>
       <div class="speed-row"><label for="speedSelect" id="speedLabel">낙하 속도</label><select id="speedSelect"><option value="tactile">촉각 저속</option><option value="turn">촉각 턴제</option><option value="relaxed">여유</option><option value="standard">표준</option><option value="challenge">도전</option></select></div>
     </div></section>
     <section class="sidecard"><h2 id="verticalTitle">세로 닷패드</h2><div class="orientation" id="orientationText"><strong>40×60 논리 핀</strong>을 실제 60×40 출력으로 자동 회전합니다.</div><div class="legend" id="legend"><span class="legend-sample solid" aria-hidden="true"></span><span>작은 촘촘한 면: 고정 블록</span><span class="legend-sample outline" aria-hidden="true"></span><span>큰 빈 테두리: 움직이는 블록</span><span class="legend-sample ghost" aria-hidden="true"></span><span>가운데 두 점: 예상 착지</span></div></section>
@@ -584,7 +584,7 @@
     /* Mirror the full surface the game calls, so a missing engine degrades to
        silence instead of throwing on the first call we forgot to stub. */
     const noop=()=>{},stub={};
-    for(const m of ['ensure','start','stop','pause','duck','earcon','setDanger','setLevel',
+    for(const m of ['ensure','start','stop','pause','duck','microDuck','earcon','setDanger','setLevel',
                     'setMode','setMusicEnabled','setMusicStyle','setSfxEnabled','setMusicVolume'])stub[m]=noop;
     return stub;
   })();
@@ -604,12 +604,26 @@
   let mode=null,running=false,paused=false,over=true,scanMode=false,scanResume=false,isAnimating=false;
   let rotateDir=params.get('rotate')==='ccw'?'ccw':'cw';
   let sdk=null,scanner=null,KeyCodes=null,DataCodes=null,dpConnected=false;
-  let dropTimer=0,dropLast=0,gravityAccumulator=0,groundedAt=0,lastDanger=0;
+  let dropTimer=0,dropLast=0,gravityAccumulator=0,groundedAt=0,lastDanger=0,locating=false;
   let padMenu='intro',padSettingIndex=0,confirmAction='',confirmUntil=0;
   /* Optional pause right after a piece appears, so the shape can be felt before
      it starts falling. Off by default: it repeats 100+ times a round, and both
-     tactile-slow and turn-based already give more than enough time. */
+     tactile-slow and turn-based already give more than enough time. settings.spawnHold
+     now means "always pause every spawn" — an override for anyone who wants it back
+     unconditionally. The per-difficulty default (below) only pauses the first time a
+     given shape appears in a round, then gets out of the way once it is familiar. */
   let spawnHoldUntil=0;
+  let seenPieceTypes=new Set();
+  // Voice-name-then-earcon teaching sequence: for a piece's first few spawns the
+  // announcement leads with its name, so the earcon has something to attach to.
+  // After that, the earcon carries the identity on its own and the name drops out
+  // of the routine per-spawn announcement (the status-read keys still say it on
+  // request). Persisted across sessions so the fade-out is a one-time thing, not
+  // something that resets every reload.
+  const PIECE_LEARN_THRESHOLD=3;
+  function pieceExposureMap(){try{return JSON.parse(storageGet('dotblocks-piece-exposure')||'{}')}catch(e){return{}}}
+  function pieceExposureCount(type){return Number(pieceExposureMap()[type])||0}
+  function bumpPieceExposure(type){const m=pieceExposureMap();m[type]=(m[type]||0)+1;storageSet('dotblocks-piece-exposure',JSON.stringify(m))}
   const PAD_SETTING_KEYS=['speech','speechMode','sfx','music','assist','spawnHold','speed','musicStyle'];
 
   // Original palette, deliberately distinct from the canonical Tetris color scheme.
@@ -664,7 +678,7 @@
 
   // ---------- DROP MODE ----------
   function initDrop(){
-    dBoard=Array.from({length:DROP_H},()=>new Uint8Array(DROP_W));score=0;lines=0;level=1;combo=-1;bag=[];nextType=randomBagPiece();holdType=null;holdUsed=false;active=null;lastDanger=0;
+    dBoard=Array.from({length:DROP_H},()=>new Uint8Array(DROP_W));score=0;lines=0;level=1;combo=-1;bag=[];nextType=randomBagPiece();holdType=null;holdUsed=false;active=null;lastDanger=0;seenPieceTypes=new Set();
     running=true;paused=false;over=false;scanMode=false;isAnimating=false;gravityAccumulator=0;groundedAt=0;dropLast=performance.now();
     spawnDropPiece(true);cancelAnimationFrame(dropTimer);dropTimer=requestAnimationFrame(dropLoop);audio.setMode('drop');audio.setLevel(1);audio.setDanger(0);audio.start();audio.earcon('start');
     updateHud();announce(S('낙하 모드 시작. 고정 블록은 촘촘하게, 움직이는 블록은 테두리로, 예상 착지는 가운데 두 점으로 느껴집니다.','Drop mode started. Settled blocks feel dense, the moving piece feels outlined, and the landing preview is two center dots.'),{phase:'play',tts:true});renderAll();
@@ -673,9 +687,26 @@
     const type=forcedType||nextType;if(!forcedType)nextType=randomBagPiece();const cells=SHAPES[type].map(v=>v.slice()),b=pieceBounds(cells);
     active={type,cells,x:Math.floor((DROP_W-b.w)/2),y:-Math.max(0,b.h-1),color:SHAPE_KEYS.indexOf(type)+1};holdUsed=false;groundedAt=0;renderNext();renderHold();
     if(collides(active,0,0,active.cells)){gameOver(S('블록이 위까지 쌓였어요.','Blocks reached the top.'));return false}
-    audio.earcon('piece',{piece:type,pan:panForColumn(active.x,DROP_W)});
-    spawnHoldUntil=(settings.spawnHold&&!first&&settings.speed!=='turn')?performance.now()+1400:0;
-    if(!first){const gy=ghostY(),cols=pieceColumnRange(active);announce(S(PIECE_NAMES[type]+' 블록. '+cols+'. 예상 착지 '+(Math.min(DROP_H,gy+b.h))+'행. 다음 '+PIECE_NAMES[nextType]+'.',PIECE_NAMES[type]+' piece. '+cols+'. Expected landing row '+Math.min(DROP_H,gy+b.h)+'. Next: '+PIECE_NAMES[nextType]+'.'),{phase:dangerLevel()?'danger':'play',tts:true})}
+    audio.earcon('piece',{piece:type,pan:panForColumn(active.x,DROP_W)});audio.microDuck();
+    // Difficulty-scoped hold: Practice has no gravity so it never needs a pause;
+    // Challenge stays at familiar Tetris speed and never pauses either. Basic
+    // (tactile) pauses only the first time a shape appears in this round — after
+    // that, the earcon plus the slow fall speed are enough. settings.spawnHold is
+    // an explicit "always pause" override for anyone who wants it every spawn.
+    const isFirstOfType=!seenPieceTypes.has(type);seenPieceTypes.add(type);
+    const shouldHold=!first&&settings.speed!=='turn'&&(settings.spawnHold||(settings.speed==='tactile'&&isFirstOfType));
+    spawnHoldUntil=shouldHold?performance.now()+1400:0;
+    if(!first){
+      const gy=ghostY(),cols=pieceColumnRange(active);
+      // Voice-to-earcon handoff: name the shape for its first few spawns so the
+      // earcon has something to attach to, then let the earcon alone carry the
+      // identity so the routine announcement gets shorter as it becomes familiar.
+      // The status-read keys still say the name on request no matter what.
+      const exposures=pieceExposureCount(type);bumpPieceExposure(type);
+      const taught=exposures<PIECE_LEARN_THRESHOLD;
+      const namePart=taught?PIECE_NAMES[type]+' 블록. ':'',namePartEn=taught?PIECE_NAMES[type]+' piece. ':'';
+      announce(S(namePart+cols+'. 예상 착지 '+(Math.min(DROP_H,gy+b.h))+'행. 다음 '+PIECE_NAMES[nextType]+'.',namePartEn+cols+'. Expected landing row '+Math.min(DROP_H,gy+b.h)+'. Next: '+PIECE_NAMES[nextType]+'.'),{phase:dangerLevel()?'danger':'play',tts:true})
+    }
     updateBoardAria();return true;
   }
   function collides(piece,dx,dy,cells){for(const[cx,cy]of cells){const x=piece.x+cx+dx,y=piece.y+cy+dy;if(x<0||x>=DROP_W||y>=DROP_H)return true;if(y>=0&&dBoard[y][x])return true}return false}
@@ -696,7 +727,7 @@
   function rotateDrop(){
     if(mode!=='drop'||!running||paused||over||scanMode||isAnimating||!active)return;
     const rotated=rotateCells(active.cells),kicks=[0,-1,1,-2,2];
-    for(const k of kicks){if(!collides(active,k,0,rotated)){active.x+=k;active.cells=rotated;if(groundedAt)resetLockDelay();audio.earcon('rotate',{pan:panForColumn(active.x,DROP_W),row:Math.max(0,active.y)});updateBoardAria();renderAll();return}}
+    for(const k of kicks){if(!collides(active,k,0,rotated)){active.x+=k;active.cells=rotated;if(groundedAt)resetLockDelay();audio.earcon('rotate',{pan:panForColumn(active.x,DROP_W),row:Math.max(0,active.y)});audio.microDuck();updateBoardAria();renderAll();return}}
     audio.earcon('blocked',{pan:panForColumn(active.x,DROP_W),row:Math.max(0,active.y)});speak(S('회전할 공간이 없어요.','Not enough room to rotate.'));
   }
   function hardDrop(){if(mode!=='drop'||!running||paused||over||scanMode||isAnimating||!active)return;let n=0;while(!collides(active,0,1,active.cells)){active.y++;n++}score+=n*2;audio.earcon('hard',{pan:panForColumn(active.x,DROP_W),row:Math.max(0,active.y)});bumpBoard('impact',180);lockDrop()}
@@ -705,7 +736,7 @@
     const current=active.type;if(holdType){const swap=holdType;holdType=current;spawnDropPiece(false,swap)}else{holdType=current;active=null;spawnDropPiece(false)}holdUsed=true;audio.earcon('hold');renderHold();speak(S(PIECE_NAMES[current]+' 블록을 보관했습니다.','Held the '+PIECE_NAMES[current]+' piece.'));renderAll();
   }
   async function lockDrop(){
-    if(!active||isAnimating)return;isAnimating=true;let above=false;for(const[cx,cy]of active.cells){const x=active.x+cx,y=active.y+cy;if(y<0){above=true;continue}dBoard[y][x]=active.color}audio.earcon('lock',{pan:panForColumn(active.x,DROP_W),row:Math.max(0,active.y)});
+    if(!active||isAnimating)return;isAnimating=true;let above=false;for(const[cx,cy]of active.cells){const x=active.x+cx,y=active.y+cy;if(y<0){above=true;continue}dBoard[y][x]=active.color}audio.earcon('lock',{pan:panForColumn(active.x,DROP_W),row:Math.max(0,active.y)});audio.microDuck();
     if(above){isAnimating=false;gameOver(S('블록이 위까지 쌓였어요.','Blocks reached the top.'));return}
     const cleared=[];for(let y=DROP_H-1;y>=0;y--)if(dBoard[y].every(Boolean))cleared.push(y);
     if(cleared.length){flashRows=cleared.slice();renderAll();await wait(110);flashRows=[];dBoard=dBoard.filter(row=>!row.every(Boolean));while(dBoard.length<DROP_H)dBoard.unshift(new Uint8Array(DROP_W));combo++;const prevLevel=level;const base=[0,100,300,500,800][cleared.length]*level,comboBonus=Math.max(0,combo)*50*level;score+=base+comboBonus;lines+=cleared.length;level=1+Math.floor(lines/10);audio.setLevel(level);audio.earcon('clear',{count:cleared.length});if(cleared.length>=3)bumpBoard('shake',320);const fxScore='+'+(base+comboBonus);if(level>prevLevel)showFx(S('레벨 '+level+'!','LEVEL '+level+'!'),fxScore,'level');else if(cleared.length>=4)showFx(S('테트리스!','TETRIS!'),fxScore,'tetris');else if(combo>0)showFx(S('콤보 ×'+(combo+1),'COMBO ×'+(combo+1)),fxScore);else showFx(S(cleared.length+'줄 클리어',cleared.length+' LINE CLEAR'),fxScore);const comboText=combo>0?S(', 콤보 '+(combo+1),' combo '+(combo+1)):'';announce(S(cleared.length+'줄 완성'+comboText+'.',cleared.length+' line'+(cleared.length>1?'s':'')+' cleared'+comboText+'.'),{phase:'play',tts:true});if(dpConnected)await padLineFlash(cleared)}else combo=-1;
@@ -730,7 +761,7 @@
   function pieceColumnRange(piece){const xs=piece.cells.map(c=>piece.x+c[0]+1),min=Math.min(...xs),max=Math.max(...xs);return min===max?S(min+'열', 'column '+min):S(min+'열부터 '+max+'열','columns '+min+' to '+max)}
   function stackHeights(){const h=[];for(let x=0;x<DROP_W;x++){let top=DROP_H;for(let y=0;y<DROP_H;y++)if(dBoard[y]&&dBoard[y][x]){top=y;break}h.push(DROP_H-top)}return h}
   function dangerLevel(){const max=Math.max(0,...stackHeights());return max>=18?2:max>=15?1:0}
-  function updateDanger(){const d=dangerLevel();audio.setDanger(d);if(d>lastDanger){audio.earcon('danger');const text=d===2?S('위험. 블록이 맨 위 두 줄까지 올라왔어요.','Critical danger. Blocks have reached the top two rows.'):S('주의. 블록이 위쪽 다섯 줄 안으로 올라왔어요.','Warning. Blocks are within the top five rows.');announce(text,{phase:'danger',tts:true,critical:true});if(dpConnected)padWarningPulse()}lastDanger=d;if(d===0&&status.dataset.phase==='danger')announce(S('위험 구간을 벗어났어요.','The board is out of the danger zone.'),{phase:'play',tts:true})}
+  function updateDanger(){const d=dangerLevel();audio.setDanger(d);if(d>lastDanger){audio.earcon('danger');const text=d===2?S('위험. 블록이 맨 위 두 줄까지 올라왔어요.','Critical danger. Blocks have reached the top two rows.'):S('주의. 블록이 위쪽 다섯 줄 안으로 올라왔어요.','Warning. Blocks are within the top five rows.');announce(text,{phase:'danger',tts:true,critical:true});if(dpConnected)padDangerEdgePulse(d)}lastDanger=d;if(d===0&&status.dataset.phase==='danger')announce(S('위험 구간을 벗어났어요.','The board is out of the danger zone.'),{phase:'play',tts:true})}
   function readDropStatus(detailed=false){
     if(over){speak(S('게임이 끝났어요. 점수 '+score+'점.','Game over. Score '+score+'.'));return}if(!active)return;
     const b=pieceBounds(active.cells),gy=ghostY(),distance=Math.max(0,gy-active.y),heights=stackHeights(),max=Math.max(...heights),holes=countHoles();
@@ -766,14 +797,14 @@
   function ensurePuzzleCursor(){const p=currentPuzzlePiece();if(!p)return;const b=pieceBounds(p.cells);cursorX=Math.max(0,Math.min(PUZZLE_W-b.w,cursorX));cursorY=Math.max(0,Math.min(PUZZLE_H-b.h,cursorY))}
   function canPlacePuzzle(piece,x,y,cells=piece.cells){if(!piece||piece.used)return false;for(const[cx,cy]of cells){const xx=x+cx,yy=y+cy;if(xx<0||xx>=PUZZLE_W||yy<0||yy>=PUZZLE_H||pBoard[yy][xx])return false}return true}
   function movePuzzle(dx,dy){if(mode!=='puzzle'||!running||paused||over||scanMode||isAnimating)return;const p=currentPuzzlePiece();if(!p||p.used)return;const b=pieceBounds(p.cells),oldX=cursorX,oldY=cursorY;cursorX=Math.max(0,Math.min(PUZZLE_W-b.w,cursorX+dx));cursorY=Math.max(0,Math.min(PUZZLE_H-b.h,cursorY+dy));if(oldX===cursorX&&oldY===cursorY)audio.earcon('blocked',{pan:panForColumn(cursorX,PUZZLE_W),row:cursorY});else audio.earcon('move',{pan:panForColumn(cursorX,PUZZLE_W),row:cursorY});updateBoardAria();renderAll()}
-  function rotatePuzzle(){if(mode!=='puzzle'||!running||paused||over||scanMode||isAnimating)return;const p=currentPuzzlePiece();if(!p||p.used)return;const old=p.cells;p.cells=rotateCells(p.cells);ensurePuzzleCursor();if(!canPlacePuzzle(p,cursorX,cursorY)){const spot=findAnyPlacement(p);if(spot){cursorX=spot.x;cursorY=spot.y}else{p.cells=old;ensurePuzzleCursor();audio.earcon('blocked');speak(S('이 블록은 회전해서 놓을 자리가 없어요.','There is no space for this rotated piece.'));return}}audio.earcon('rotate',{pan:panForColumn(cursorX,PUZZLE_W),row:cursorY});renderTray();announceSelectedPuzzle(false);renderAll()}
+  function rotatePuzzle(){if(mode!=='puzzle'||!running||paused||over||scanMode||isAnimating)return;const p=currentPuzzlePiece();if(!p||p.used)return;const old=p.cells;p.cells=rotateCells(p.cells);ensurePuzzleCursor();if(!canPlacePuzzle(p,cursorX,cursorY)){const spot=findAnyPlacement(p);if(spot){cursorX=spot.x;cursorY=spot.y}else{p.cells=old;ensurePuzzleCursor();audio.earcon('blocked');speak(S('이 블록은 회전해서 놓을 자리가 없어요.','There is no space for this rotated piece.'));return}}audio.earcon('rotate',{pan:panForColumn(cursorX,PUZZLE_W),row:cursorY});audio.microDuck();renderTray();announceSelectedPuzzle(false);renderAll()}
   function selectPuzzle(index,announceIt=true){if(mode!=='puzzle'||over||isAnimating)return;if(index<0||index>=pTray.length||pTray[index].used)return;selectedPiece=index;ensurePuzzleCursor();const p=currentPuzzlePiece(),spot=findAnyPlacement(p);if(spot&&!canPlacePuzzle(p,cursorX,cursorY)){cursorX=spot.x;cursorY=spot.y}renderTray();renderAll();if(announceIt)announceSelectedPuzzle(true)}
   function cyclePuzzle(){if(mode!=='puzzle'||over)return;for(let i=1;i<=3;i++){const n=(selectedPiece+i)%3;if(!pTray[n].used){selectPuzzle(n,true);return}}}
   function findAnyPlacement(piece){if(!piece||piece.used)return null;const b=pieceBounds(piece.cells);for(let y=0;y<=PUZZLE_H-b.h;y++)for(let x=0;x<=PUZZLE_W-b.w;x++)if(canPlacePuzzle(piece,x,y))return{x,y};return null}
   async function placePuzzle(){
     if(mode!=='puzzle'||!running||paused||over||scanMode||isAnimating)return;const p=currentPuzzlePiece();if(!p||p.used)return;
     if(!canPlacePuzzle(p,cursorX,cursorY)){audio.earcon('blocked',{pan:panForColumn(cursorX,PUZZLE_W),row:cursorY});speak(S('그 자리는 다른 블록과 겹쳐요.','That position overlaps another block.'));return}
-    isAnimating=true;for(const[cx,cy]of p.cells)pBoard[cursorY+cy][cursorX+cx]=p.color;p.used=true;pScore+=p.cells.length*10;audio.earcon('place',{pan:panForColumn(cursorX,PUZZLE_W),row:cursorY});
+    isAnimating=true;for(const[cx,cy]of p.cells)pBoard[cursorY+cy][cursorX+cx]=p.color;p.used=true;pScore+=p.cells.length*10;audio.earcon('place',{pan:panForColumn(cursorX,PUZZLE_W),row:cursorY});audio.microDuck();
     const fullRows=[],fullCols=[];for(let y=0;y<PUZZLE_H;y++)if(pBoard[y].every(Boolean))fullRows.push(y);for(let x=0;x<PUZZLE_W;x++){let full=true;for(let y=0;y<PUZZLE_H;y++)if(!pBoard[y][x]){full=false;break}if(full)fullCols.push(x)}
     if(fullRows.length||fullCols.length){flashRows=fullRows.slice();flashCols=fullCols.slice();renderAll();await wait(120);const clearSet=new Set();for(const y of fullRows)for(let x=0;x<PUZZLE_W;x++)clearSet.add(y+','+x);for(const x of fullCols)for(let y=0;y<PUZZLE_H;y++)clearSet.add(y+','+x);for(const key of clearSet){const[y,x]=key.split(',').map(Number);pBoard[y][x]=0}flashRows=[];flashCols=[];const n=fullRows.length+fullCols.length;pCombo++;pClears+=n;const bonus=n*150+Math.max(0,n-1)*100+pCombo*30;pScore+=bonus;audio.earcon('clear',{count:Math.min(4,n)});if(n>=3)bumpBoard('shake',320);const fxScore='+'+bonus;if(pCombo>1)showFx(S('연속 ×'+pCombo,'STREAK ×'+pCombo),fxScore);else if(n>=3)showFx(S(n+'줄 동시 완성!',n+' LINES AT ONCE!'),fxScore,'tetris');else showFx(S(n+'줄 완성',n+' LINE CLEAR'),fxScore);speak(S('완성. '+n+'개 줄 삭제, 연속 '+pCombo+'회.','Complete. '+n+' lines cleared, streak '+pCombo+'.'))}else pCombo=0;
     if(pTray.every(v=>v.used)){pTray=[makePuzzlePiece(),makePuzzlePiece(),makePuzzlePiece()];selectedPiece=0;cursorX=0;cursorY=0;ensurePuzzleCursor();speak(S('새 블록 세 개가 나왔어요.','Three new pieces are ready.'))}else cyclePuzzle();
@@ -811,10 +842,10 @@
     if(next===mode&&!autoStart){stage.dataset.mode=next;syncModeTitle();return;}mode=next;stage.dataset.mode=mode;running=false;paused=false;over=true;scanMode=false;cancelAnimationFrame(dropTimer);audio.stop();if(mode==='drop'){dBoard=[];active=null;holdType=null}else{pBoard=[];pTray=[]}
     syncModeTitle();trayCard.hidden=mode!=='puzzle';nextCard.hidden=mode!=='drop';holdCard.hidden=mode!=='drop';pauseBtn.hidden=mode==='puzzle';scanBtn.setAttribute('aria-pressed','false');portraitBadge.dataset.scan='0';
     $('secondaryLabel').textContent=mode==='drop'?S('줄','Lines'):S('완성 줄','Clears');$('levelLabel').textContent=mode==='drop'?S('레벨','Level'):S('남은 블록','Pieces');
-    $('helpText').innerHTML=mode==='drop'?S('<b>낙하 모드</b><br><span class="key">←</span><span class="key">→</span> 이동 · <span class="key">↑</span> 회전<br><span class="key">↓</span> 한 칸 · <span class="key">Space×2</span> 바로 내리기<br><span class="key">C</span> 보관 · <span class="key">S</span> 상태 · <span class="key">D</span> 상세<br><span class="key">V</span> 다음·보관 · <span class="key">Q</span> 표면 스캔','<b>Drop mode</b><br><span class="key">←</span><span class="key">→</span> move · <span class="key">↑</span> rotate<br><span class="key">↓</span> soft drop · <span class="key">Space×2</span> hard drop<br><span class="key">C</span> hold · <span class="key">S</span> status · <span class="key">Q</span> surface scan'):
-      S('<b>블록 퍼즐</b><br><span class="key">방향키</span> 위치 이동 · <span class="key">R</span> 회전<br><span class="key">Tab</span> 블록 선택 · <span class="key">Space</span> 놓기<br><span class="key">S</span> 상태 · <span class="key">Q</span> 보드 스캔','<b>Block puzzle</b><br><span class="key">Arrows</span> move · <span class="key">R</span> rotate<br><span class="key">Tab</span> select · <span class="key">Space</span> place<br><span class="key">S</span> status · <span class="key">D</span> detail · <span class="key">V</span> next/hold · <span class="key">Q</span> board scan');
-    $('padHelp').textContent=mode==='drop'?S('F1 왼쪽 · F2 오른쪽 · F3 회전 · F4 아래 · F2+F3 두 번 내려놓기 · F1+F2 보관 · 왼쪽 패닝 간단 상태 · F2+F4 다음·보관 · F3+F4 상세 상태 · 전체 패닝 표면 스캔 · 오른쪽 패닝 두 번 내려놓기 · RPF4 일시정지 · F1+F4 설정','F1 left · F2 right · F3 rotate · F4 down · F2+F3 twice to drop · F1+F2 hold · left pan quick status · F2+F4 next/hold · F3+F4 full status · all pan surface scan · right pan twice to drop · RPF4 pause · F1+F4 settings'):
-      S('F1 왼쪽 · F2 오른쪽 · F3 위 · F4 아래 · F2+F3 놓기 · 왼쪽 패닝 회전 · 오른쪽 패닝 블록 선택 · 전체 패닝 놓기 · F1+F2 상세 상태 · F1+F4 설정','F1 left · F2 right · F3 up · F4 down · F2+F3 place · left pan rotate · right pan select · all pan place · F1+F2 detailed status · F1+F4 settings');
+    $('helpText').innerHTML=mode==='drop'?S('<b>낙하 모드</b><br><span class="key">←</span><span class="key">→</span> 이동 · <span class="key">↑</span> 회전<br><span class="key">↓</span> 한 칸 · <span class="key">Space×2</span> 바로 내리기<br><span class="key">C</span> 보관 · <span class="key">S</span> 상태 · <span class="key">D</span> 상세<br><span class="key">V</span> 다음·보관 · <span class="key">Q</span> 표면 스캔 · <span class="key">F</span> 현재 블록 재탐색','<b>Drop mode</b><br><span class="key">←</span><span class="key">→</span> move · <span class="key">↑</span> rotate<br><span class="key">↓</span> soft drop · <span class="key">Space×2</span> hard drop<br><span class="key">C</span> hold · <span class="key">S</span> status · <span class="key">Q</span> surface scan · <span class="key">F</span> re-locate piece'):
+      S('<b>블록 퍼즐</b><br><span class="key">방향키</span> 위치 이동 · <span class="key">R</span> 회전<br><span class="key">Tab</span> 블록 선택 · <span class="key">Space</span> 놓기<br><span class="key">S</span> 상태 · <span class="key">Q</span> 보드 스캔 · <span class="key">F</span> 현재 블록 재탐색','<b>Block puzzle</b><br><span class="key">Arrows</span> move · <span class="key">R</span> rotate<br><span class="key">Tab</span> select · <span class="key">Space</span> place<br><span class="key">S</span> status · <span class="key">D</span> detail · <span class="key">V</span> next/hold · <span class="key">Q</span> board scan · <span class="key">F</span> re-locate piece');
+    $('padHelp').textContent=mode==='drop'?S('F1 왼쪽 · F2 오른쪽 · F3 회전 · F4 아래 · F2+F3 두 번 내려놓기 · F1+F2 보관 · F1+F3 현재 블록 재탐색 · 왼쪽 패닝 간단 상태 · F2+F4 다음·보관 · F3+F4 상세 상태 · 전체 패닝 표면 스캔 · 오른쪽 패닝 두 번 내려놓기 · RPF4 일시정지 · F1+F4 설정','F1 left · F2 right · F3 rotate · F4 down · F2+F3 twice to drop · F1+F2 hold · F1+F3 re-locate current piece · left pan quick status · F2+F4 next/hold · F3+F4 full status · all pan surface scan · right pan twice to drop · RPF4 pause · F1+F4 settings'):
+      S('F1 왼쪽 · F2 오른쪽 · F3 위 · F4 아래 · F2+F3 놓기 · F1+F3 현재 블록 재탐색 · 왼쪽 패닝 회전 · 오른쪽 패닝 블록 선택 · 전체 패닝 놓기 · F1+F2 상세 상태 · F1+F4 설정','F1 left · F2 right · F3 up · F4 down · F2+F3 place · F1+F3 re-locate current piece · left pan rotate · right pan select · all pan place · F1+F2 detailed status · F1+F4 settings');
     $('brlTitle').textContent=S('점자 표시줄','Braille line');
     $('brlHelp').textContent=mode==='drop'
       ?S('왼쪽부터 현재 블록 · 왼쪽 끝 열 · 착지까지 남은 칸 · 다음 블록 순서로 항상 표시됩니다. 블록은 I O T S Z J L 글자, 숫자 앞에는 수표가 붙습니다. 음성을 기다리지 않고 손끝으로 바로 확인할 수 있습니다.','Left to right: current piece, leftmost column, rows to landing, next piece — shown continuously. Pieces use the letters I O T S Z J L; numbers carry the number sign. Readable by fingertip without waiting for speech.')
@@ -888,14 +919,27 @@
       for(let yy=0;yy<ch;yy++)for(let xx=0;xx<cw;xx++)setPin(g,ox+xx,oy+yy)
     }
   }
-  function buildPortraitFrame(){const g=blankPortrait();if(mode==='drop'){if(flashRows.length){for(const y of flashRows)for(let x=0;x<DROP_W;x++)fillTactileCell(g,x,y,4,3,'flash');return g}
+  // Non-null while padLocateCurrent()/padDangerEdgePulse() are mid-sequence: they
+  // build their own frame each tick and push it here instead of letting the
+  // regular board state render, then clear it back to null when done.
+  let locateOverrideFrame=null;
+  function cloneFrame(g){return g.map(row=>row.slice())}
+  function buildLockedOnlyFrame(){
+    const g=blankPortrait();
+    if(mode==='drop'){for(let y=0;y<DROP_H;y++)for(let x=0;x<DROP_W;x++)if(dBoard[y]&&dBoard[y][x])fillTactileCell(g,x,y,4,3,'solid')}
+    else{for(let y=0;y<PUZZLE_H;y++)for(let x=0;x<PUZZLE_W;x++)if(pBoard[y]&&pBoard[y][x])fillTactileCell(g,x,y,5,5,'solid')}
+    return g;
+  }
+  function buildPortraitFrame(){
+    if(locateOverrideFrame)return locateOverrideFrame;
+    const g=blankPortrait();if(mode==='drop'){if(flashRows.length){for(const y of flashRows)for(let x=0;x<DROP_W;x++)fillTactileCell(g,x,y,4,3,'flash');return g}
       if(scanMode){const heights=stackHeights();for(let x=0;x<DROP_W;x++){const y=Math.max(0,DROP_H-heights[x]);if(heights[x]>0)fillTactileCell(g,x,y,4,3,'surface')}if(active)for(const[cx,cy]of active.cells){const x=active.x+cx,y=active.y+cy;if(y>=0)fillTactileCell(g,x,y,4,3,'active')}}
       else{for(let y=0;y<DROP_H;y++)for(let x=0;x<DROP_W;x++)if(dBoard[y]&&dBoard[y][x])fillTactileCell(g,x,y,4,3,'solid');if(active){const gy=ghostY();for(const[cx,cy]of active.cells){const x=active.x+cx,y=gy+cy;if(y>=0)fillTactileCell(g,x,y,4,3,'ghost')}for(const[cx,cy]of active.cells){const x=active.x+cx,y=active.y+cy;if(y>=0)fillTactileCell(g,x,y,4,3,'active')}}}
-      /* Danger rail on both edges. Level 1 (stack >=15) is a sparse dotted rail;
-         level 2 (>=18) doubles the density and runs deeper, so the escalation is
-         readable by touch alone without adding any moving pins. */
-      const dl=dangerLevel();
-      if(dl){const step=dl>1?2:3,depth=dl>1?20:12;for(let y=0;y<depth;y+=step){setPin(g,0,y);setPin(g,39,y)}}
+      /* Danger no longer bakes a persistent rail into every frame — a stack that
+         stays tall for a while used to leave the edge rail mixed in with normal
+         play indefinitely, which risked reading as part of the settled blocks.
+         padDangerEdgePulse() below fires a two-pulse edge flash only at the
+         moment a danger level is entered, then the board goes back to normal. */
     }else{
       for(let y=0;y<PUZZLE_H;y++)for(let x=0;x<PUZZLE_W;x++)if(pBoard[y]&&pBoard[y][x])fillTactileCell(g,x,y,5,5,'solid');const p=currentPuzzlePiece();if(p&&!p.used)for(const[cx,cy]of p.cells)fillTactileCell(g,cursorX+cx,cursorY+cy,5,5,canPlacePuzzle(p,cursorX,cursorY)?'active':'invalid');
     }return g}
@@ -939,7 +983,56 @@
   function renderPad(){if(!dpConnected||!sdk)return;try{const h=portraitToHardware(buildPortraitFrame());sdk.displayGraphicData(encodeHardware(h));sdk.displayTextData(brailleLine())}catch(e){}}
   function wait(ms){return new Promise(r=>setTimeout(r,ms))}
   async function padPulse(){if(!dpConnected||!sdk)return;try{for(let i=0;i<3;i++){sdk.displayAllUp&&sdk.displayAllUp();await wait(70);sdk.displayAllDown&&sdk.displayAllDown();await wait(55)}renderPad()}catch(e){}}
-  async function padWarningPulse(){if(!dpConnected||!sdk)return;try{sdk.displayAllUp&&sdk.displayAllUp();await wait(90);renderPad()}catch(e){}}
+  // Danger no longer bakes a persistent rail into the board (see buildPortraitFrame).
+  // Instead, entering a danger level fires this two-pulse edge flash on top of
+  // whatever the board currently shows, then hands back to the normal frame —
+  // level 1 uses a sparse rail, level 2 a denser/deeper one, so the escalation is
+  // still readable, but only at the moment it happens instead of for as long as
+  // the stack stays tall.
+  async function padDangerEdgePulse(level){
+    if(!dpConnected||!sdk)return;
+    const step=level>1?2:3,depth=level>1?20:12;
+    try{
+      for(let i=0;i<2;i++){
+        const g=cloneFrame(buildPortraitFrame());
+        for(let y=0;y<depth;y+=step){setPin(g,0,y);setPin(g,39,y)}
+        locateOverrideFrame=g;renderPad();drawPin();await wait(140);
+        locateOverrideFrame=null;renderPad();drawPin();await wait(90);
+      }
+    }catch(e){}finally{locateOverrideFrame=null;renderPad();drawPin()}
+  }
+  // On-demand tactile re-locate (F1+F3 / keyboard F): instead of a continuous
+  // pulse on the active piece (which would add 200+ extra BLE actuations per
+  // round), this only runs when asked. It holds the settled blocks steady,
+  // flashes the current piece twice, flashes the landing preview once (drop
+  // mode only — puzzle has no landing), then returns to the normal frame.
+  async function padLocateCurrent(){
+    // Also runnable with just the on-screen pin preview open (no DotPad hardware
+    // required), so the sequence is visually testable during development/QA.
+    if((!dpConnected||!sdk)&&!pinwrap.classList.contains('show'))return;
+    if(locating)return;
+    if(mode==='drop'){if(!running||over||scanMode||!active)return}
+    else{if(!running||over||scanMode||!currentPuzzlePiece())return}
+    locating=true;
+    const wasPaused=paused;
+    if(mode==='drop'&&!wasPaused){paused=true;audio.pause()}
+    try{
+      const locked=buildLockedOnlyFrame();
+      const withActive=cloneFrame(locked);
+      if(mode==='drop'){for(const[cx,cy]of active.cells){const x=active.x+cx,y=active.y+cy;if(y>=0)fillTactileCell(withActive,x,y,4,3,'flash')}}
+      else{const p=currentPuzzlePiece();for(const[cx,cy]of p.cells)fillTactileCell(withActive,cursorX+cx,cursorY+cy,5,5,'flash')}
+      for(let i=0;i<2;i++){locateOverrideFrame=withActive;renderPad();drawPin();await wait(130);locateOverrideFrame=locked;renderPad();drawPin();await wait(90)}
+      if(mode==='drop'){
+        const gy=ghostY(),withGhost=cloneFrame(locked);
+        for(const[cx,cy]of active.cells){const x=active.x+cx,y=gy+cy;if(y>=0)fillTactileCell(withGhost,x,y,4,3,'flash')}
+        locateOverrideFrame=withGhost;renderPad();drawPin();await wait(170);
+      }
+    }catch(e){}
+    locateOverrideFrame=null;
+    if(mode==='drop'&&!wasPaused){paused=false;audio.start();dropLast=performance.now()}
+    renderAll();
+    locating=false;
+  }
   async function padLineFlash(rows){if(!dpConnected||!sdk||!rows.length)return;try{for(let i=0;i<2;i++){flashRows=rows.slice();renderPad();await wait(75);flashRows=[];renderPad();await wait(60)}}catch(e){}finally{flashRows=[]}}
 
   function clearConfirm(){confirmAction='';confirmUntil=0}
@@ -950,7 +1043,7 @@
   }
   function confirmedHardDrop(){return confirmActionTwice('hardDrop',S('즉시 낙하 확인. 1.8초 안에 같은 키를 한 번 더 누르세요.','Hard drop confirmation. Press the same key again within 1.8 seconds.'),hardDrop)}
   function confirmedRestart(){return confirmActionTwice('restart',S('다시 시작 확인. 1.8초 안에 F1을 한 번 더 누르세요.','Restart confirmation. Press F1 again within 1.8 seconds.'),newGame)}
-  function padSettingName(key){return {speech:S('음성 안내','speech guidance'),speechMode:S('음성 안내 방식','speech source'),sfx:S('방향 효과음','directional effects'),music:S('배경음악','music'),assist:S('잠금 유예','lock delay'),spawnHold:S('새 블록 확인 시간','new piece hold'),speed:S('낙하 방식','drop style'),musicStyle:S('음악 스타일','music style')}[key]}
+  function padSettingName(key){return {speech:S('음성 안내','speech guidance'),speechMode:S('음성 안내 방식','speech source'),sfx:S('방향 효과음','directional effects'),music:S('배경음악','music'),assist:S('잠금 유예','lock delay'),spawnHold:S('새 블록 항상 정지','always pause new piece'),speed:S('낙하 방식','drop style'),musicStyle:S('음악 스타일','music style')}[key]}
   function padSettingValue(key){if(key==='speechMode')return {superdot:S('슈퍼닷 TTS','SuperDot TTS'),screenreader:S('스크린리더만','screen reader only'),both:S('둘 다','both')}[settings.speechMode];if(key==='speed')return {tactile:S('촉각 저속','tactile slow'),turn:S('촉각 턴제','tactile turn based'),relaxed:S('여유','relaxed'),standard:S('표준','standard'),challenge:S('도전','challenge')}[settings.speed];if(key==='musicStyle')return settings.musicStyle==='retro'?S('레트로','retro'):S('앰비언트','ambient');return settings[key]?S('켜짐','on'):S('꺼짐','off')}
   function announcePadSetting(){const key=PAD_SETTING_KEYS[padSettingIndex];speak((padSettingIndex+1)+'/'+PAD_SETTING_KEYS.length+'. '+padSettingName(key)+', '+padSettingValue(key)+'. '+S('F1 이전, F2 다음, F3 변경, F4 닫기.','F1 previous, F2 next, F3 change, F4 close.'))}
   function syncSettingUI(){
@@ -981,21 +1074,26 @@
     }
     if(keyCode===KeyCodes.KeyFunction14||(KeyCodes.LPF4!==undefined&&keyCode===KeyCodes.LPF4)){enterPadSettings();return}
     if(mode==='drop'){
-      if(keyCode===KeyCodes.KeyFunction1)moveDrop(-1,0);else if(keyCode===KeyCodes.KeyFunction2)moveDrop(1,0);else if(keyCode===KeyCodes.KeyFunction3)rotateDrop();else if(keyCode===KeyCodes.KeyFunction4)moveDrop(0,1);else if(keyCode===KeyCodes.KeyFunction12)holdDrop();else if(keyCode===KeyCodes.KeyFunction23||keyCode===KeyCodes.PanningRight)confirmedHardDrop();else if(keyCode===KeyCodes.PanningLeft)readDropStatus(false);else if(keyCode===KeyCodes.PanningAll)toggleScan();else if(keyCode===KeyCodes.RPF4)togglePause();else if(keyCode===KeyCodes.LPF1)confirmedRestart();else if(keyCode===KeyCodes.KeyFunction34)readDropStatus(true);else if(keyCode===KeyCodes.KeyFunction24)readNextHold()
+      if(keyCode===KeyCodes.KeyFunction1)moveDrop(-1,0);else if(keyCode===KeyCodes.KeyFunction2)moveDrop(1,0);else if(keyCode===KeyCodes.KeyFunction3)rotateDrop();else if(keyCode===KeyCodes.KeyFunction4)moveDrop(0,1);else if(keyCode===KeyCodes.KeyFunction12)holdDrop();else if(keyCode===KeyCodes.KeyFunction23||keyCode===KeyCodes.PanningRight)confirmedHardDrop();else if(keyCode===KeyCodes.PanningLeft)readDropStatus(false);else if(keyCode===KeyCodes.PanningAll)toggleScan();else if(keyCode===KeyCodes.RPF4)togglePause();else if(keyCode===KeyCodes.LPF1)confirmedRestart();else if(keyCode===KeyCodes.KeyFunction34)readDropStatus(true);else if(keyCode===KeyCodes.KeyFunction24)readNextHold();else if(keyCode===KeyCodes.KeyFunction13)padLocateCurrent()
     }else{
-      if(keyCode===KeyCodes.KeyFunction1)movePuzzle(-1,0);else if(keyCode===KeyCodes.KeyFunction2)movePuzzle(1,0);else if(keyCode===KeyCodes.KeyFunction3)movePuzzle(0,-1);else if(keyCode===KeyCodes.KeyFunction4)movePuzzle(0,1);else if(keyCode===KeyCodes.PanningLeft)rotatePuzzle();else if(keyCode===KeyCodes.PanningRight)cyclePuzzle();else if(keyCode===KeyCodes.PanningAll||keyCode===KeyCodes.KeyFunction23)placePuzzle();else if(keyCode===KeyCodes.KeyFunction12)readPuzzleStatus(true);else if(keyCode===KeyCodes.RPF4)readPuzzleStatus(false);else if(keyCode===KeyCodes.LPF1)confirmedRestart()
+      if(keyCode===KeyCodes.KeyFunction1)movePuzzle(-1,0);else if(keyCode===KeyCodes.KeyFunction2)movePuzzle(1,0);else if(keyCode===KeyCodes.KeyFunction3)movePuzzle(0,-1);else if(keyCode===KeyCodes.KeyFunction4)movePuzzle(0,1);else if(keyCode===KeyCodes.PanningLeft)rotatePuzzle();else if(keyCode===KeyCodes.PanningRight)cyclePuzzle();else if(keyCode===KeyCodes.PanningAll||keyCode===KeyCodes.KeyFunction23)placePuzzle();else if(keyCode===KeyCodes.KeyFunction12)readPuzzleStatus(true);else if(keyCode===KeyCodes.RPF4)readPuzzleStatus(false);else if(keyCode===KeyCodes.LPF1)confirmedRestart();else if(keyCode===KeyCodes.KeyFunction13)padLocateCurrent()
     }
   }
   async function loadSDK(){try{const m=await import(new URL('./dotpad-sdk/DotPadSDK-3.0.0.js',document.baseURI).href);KeyCodes=m.KeyCodes;DataCodes=m.DataCodes;sdk=new m.DotPadSDK();scanner=new m.DotPadScanner();sdk.setCallBack((device,code)=>{if(code===DataCodes.Connected){dpConnected=true;setDpUI(true);setTimeout(()=>{try{sdk.displayAllDown();setTimeout(renderPad,250)}catch(e){}},180)}else if(code===DataCodes.Disconnected){dpConnected=false;setDpUI(false)}},(device,keyCode)=>handleDotPadKey(keyCode));return true}catch(e){console.error('[DOT BLOCKS] dotpad-sdk/DotPadSDK-3.0.0.js를 불러오지 못했습니다. index.html은 단독 파일이 아니라 audio-engine.js·tts.js·superdot-tts-core.js 등 형제 파일과 같은 폴더에 있어야 합니다.',e);return false}}
-  function setDpUI(on){dpBtn.dataset.on=on?'1':'0';$('dpLabel').textContent=on?S('닷패드 연결됨','DotPad connected'):S('닷패드 연결','Connect DotPad');$('introDpLabel').textContent=on?S('닷패드 연결됨','DotPad connected'):S('닷패드 먼저 연결','Connect DotPad first');if(on){padMenu=introScreen.hidden?null:'intro';speak(S('닷패드가 연결됐어요. 기기를 세로로 세우세요. 인트로에서는 F1 시작, F2 난이도 바꾸기, F3 도움말, F4 설정, F1+F2 블록 퍼즐입니다.','DotPad connected. Stand it vertically. On the intro screen, F1 starts, F2 changes difficulty, F3 help, F4 settings, F1 plus F2 Block Puzzle.'))}}
+  function setDpUI(on){dpBtn.dataset.on=on?'1':'0';$('dpLabel').textContent=on?S('닷패드 연결됨','DotPad connected'):S('닷패드 연결','Connect DotPad');$('introDpLabel').textContent=on?S('닷패드 연결됨 · 시작','DotPad connected · Start'):S('닷패드 연결하고 시작','Connect DotPad & start');if(on){padMenu=introScreen.hidden?null:'intro';speak(S('닷패드가 연결됐어요. 기기를 세로로 세우세요. 인트로에서는 F1 시작, F2 난이도 바꾸기, F3 도움말, F4 설정, F1+F2 블록 퍼즐입니다.','DotPad connected. Stand it vertically. On the intro screen, F1 starts, F2 changes difficulty, F3 help, F4 settings, F1 plus F2 Block Puzzle.'))}}
   async function connectDotPad(){if(!navigator.bluetooth){announce(S('이 브라우저는 블루투스를 지원하지 않아요. 크롬이나 엣지에서 열어 주세요.','Bluetooth is not supported. Open in Chrome or Edge.'),{phase:'ready',tts:true});return}if(!sdk){await loadSDK();if(!sdk){announce(S('닷패드 SDK 파일을 찾지 못했어요. 게임 폴더 전체를 함께 열어야 합니다.','Could not find the DotPad SDK file. The whole game folder needs to be served together.'),{phase:'ready',tts:true});return}}try{let dev=null;try{dev=await navigator.bluetooth.requestDevice({filters:[{namePrefix:'DotPad'},{namePrefix:'KM2-'},{namePrefix:'KM3-'},{namePrefix:'DPK'},{namePrefix:'DMI'}],optionalServices:[scanner.DOTPAD_SERVICE]})}catch(e){if(e.name==='NotFoundError')dev=await navigator.bluetooth.requestDevice({acceptAllDevices:true,optionalServices:[scanner.DOTPAD_SERVICE]});else throw e}if(dev){announce(S('닷패드에 연결 중…','Connecting to DotPad…'),{phase:'ready',tts:false});await sdk.connectBleDevice(dev)}}catch(e){if(e.name!=='NotFoundError')announce(S('닷패드 연결 실패: ','DotPad connection failed: ')+(e.message||e.name),{phase:'ready',tts:true})}}
+  // Single hero CTA for the booth flow: try to connect, then start the currently
+  // selected difficulty (Basic/tactile by default) either way. Someone without a
+  // DotPad, or who cancels the browser device picker, still lands in the game —
+  // the connect attempt is best-effort, never a gate.
+  async function connectAndStart(){if(!dpConnected)await connectDotPad();showPlay();newGame()}
 
   // ---------- INPUT / UI ----------
   document.addEventListener('keydown',ev=>{const k=ev.key;document.body.classList.add('kbd');ensureAudio();if(!introScreen.hidden){if(k==='1'||k==='2'||k==='3'){setDifficulty(Number(k)-1);ev.preventDefault();return}if(k==='p'||k==='P'){puzzleModeBtn.click();ev.preventDefault();return}if(k==='Enter'){showPlay();newGame();ev.preventDefault();return}}if(k==='Escape'&&!settingsDrawer.hidden){closeDrawer();ev.preventDefault();return}if(k==='1'){setMode('drop',true);ev.preventDefault();return}if(k==='2'){setMode('puzzle',true);ev.preventDefault();return}if(k==='h'||k==='H'||k==='?'){tutorial();ev.preventDefault();return}if(k==='n'||k==='N'){confirmedRestart();ev.preventDefault();return}if(k==='o'||k==='O'){toggleOrientation();ev.preventDefault();return}if(k==='s'||k==='S'){readStatus(false);ev.preventDefault();return}if(k==='d'||k==='D'){readStatus(true);ev.preventDefault();return}if(k==='v'||k==='V'){readNextHold();ev.preventDefault();return}if(k==='q'||k==='Q'){toggleScan();ev.preventDefault();return}if(k==='Enter'&&over){confirmedRestart();ev.preventDefault();return}
-    if(mode==='drop'){if(k==='ArrowLeft')moveDrop(-1,0);else if(k==='ArrowRight')moveDrop(1,0);else if(k==='ArrowDown')moveDrop(0,1);else if(k==='ArrowUp'||k==='x'||k==='X')rotateDrop();else if(k===' ')confirmedHardDrop();else if(k==='c'||k==='C')holdDrop();else if(k==='p'||k==='P')togglePause();else return;ev.preventDefault()}
-    else{if(k==='ArrowLeft')movePuzzle(-1,0);else if(k==='ArrowRight')movePuzzle(1,0);else if(k==='ArrowUp')movePuzzle(0,-1);else if(k==='ArrowDown')movePuzzle(0,1);else if(k==='r'||k==='R')rotatePuzzle();else if(k==='Tab')cyclePuzzle();else if(k===' '||k==='Enter')placePuzzle();else return;ev.preventDefault()}});
+    if(mode==='drop'){if(k==='ArrowLeft')moveDrop(-1,0);else if(k==='ArrowRight')moveDrop(1,0);else if(k==='ArrowDown')moveDrop(0,1);else if(k==='ArrowUp'||k==='x'||k==='X')rotateDrop();else if(k===' ')confirmedHardDrop();else if(k==='c'||k==='C')holdDrop();else if(k==='p'||k==='P')togglePause();else if(k==='f'||k==='F')padLocateCurrent();else return;ev.preventDefault()}
+    else{if(k==='ArrowLeft')movePuzzle(-1,0);else if(k==='ArrowRight')movePuzzle(1,0);else if(k==='ArrowUp')movePuzzle(0,-1);else if(k==='ArrowDown')movePuzzle(0,1);else if(k==='r'||k==='R')rotatePuzzle();else if(k==='Tab')cyclePuzzle();else if(k===' '||k==='Enter')placePuzzle();else if(k==='f'||k==='F')padLocateCurrent();else return;ev.preventDefault()}});
   DIFFS.forEach((d,i)=>$(d.id).addEventListener('click',()=>setDifficulty(i)));
-  puzzleModeBtn.addEventListener('click',()=>{setMode('puzzle',false);syncModeTitle();speak(S('블록 퍼즐. 추가 게임입니다.','Block Puzzle. Bonus game.'))});startSelectedBtn.addEventListener('click',()=>{showPlay();newGame()});introConnectBtn.addEventListener('click',connectDotPad);homeBtn.addEventListener('click',()=>{tw('exit');showIntro()});menuBtn.addEventListener('click',openDrawer);drawerClose.addEventListener('click',closeDrawer);drawerBackdrop.addEventListener('click',closeDrawer);resumeBtn.addEventListener('click',togglePause);pauseHomeBtn.addEventListener('click',showIntro);restartBtn.addEventListener('click',()=>{resultOverlay.hidden=true;newGame()});resultHomeBtn.addEventListener('click',showIntro);newBtn.addEventListener('click',()=>{closeDrawer();newGame()});pauseBtn.addEventListener('click',togglePause);helpBtn.addEventListener('click',tutorial);statusBtn.addEventListener('click',()=>readStatus(false));scanBtn.addEventListener('click',toggleScan);dpBtn.addEventListener('click',connectDotPad);
+  puzzleModeBtn.addEventListener('click',()=>{setMode('puzzle',false);syncModeTitle();speak(S('블록 퍼즐. 추가 게임입니다.','Block Puzzle. Bonus game.'))});startSelectedBtn.addEventListener('click',()=>{showPlay();newGame()});introConnectBtn.addEventListener('click',connectAndStart);homeBtn.addEventListener('click',()=>{tw('exit');showIntro()});menuBtn.addEventListener('click',openDrawer);drawerClose.addEventListener('click',closeDrawer);drawerBackdrop.addEventListener('click',closeDrawer);resumeBtn.addEventListener('click',togglePause);pauseHomeBtn.addEventListener('click',showIntro);restartBtn.addEventListener('click',()=>{resultOverlay.hidden=true;newGame()});resultHomeBtn.addEventListener('click',showIntro);newBtn.addEventListener('click',()=>{closeDrawer();newGame()});pauseBtn.addEventListener('click',togglePause);helpBtn.addEventListener('click',tutorial);statusBtn.addEventListener('click',()=>readStatus(false));scanBtn.addEventListener('click',toggleScan);dpBtn.addEventListener('click',connectDotPad);
   function toggleOrientation(){rotateDir=rotateDir==='cw'?'ccw':'cw';$('orientationLabel').textContent=rotateDir==='cw'?S('회전: 오른쪽','Rotate: right'):S('회전: 왼쪽','Rotate: left');renderPad();speak(rotateDir==='cw'?S('오른쪽으로 돌려 세우는 방향입니다.','Use clockwise portrait rotation.'):S('왼쪽으로 돌려 세우는 방향입니다.','Use counterclockwise portrait rotation.'))}
   orientationBtn.addEventListener('click',toggleOrientation);
   /* ── Sound toggle (Dot Games common component) ──────────────────────
@@ -1039,7 +1137,7 @@
   speechToggle.addEventListener('click',()=>{settings.speech=!settings.speech;syncSettingUI();syncSoundBtn();if(settings.speech)speak(S('음성 안내를 켰어요.','Speech guidance on.'));else stopSpeech()});
   sfxToggle.addEventListener('click',()=>{settings.sfx=!settings.sfx;audio.setSfxEnabled(settings.sfx);setToggle(sfxToggle,'sfxState',settings.sfx);saveSettings();if(settings.sfx)audio.earcon('start')});
   musicToggle.addEventListener('click',()=>{settings.music=!settings.music;audio.setMusicEnabled(settings.music);setToggle(musicToggle,'musicState',settings.music);saveSettings();if(settings.music&&running&&!paused)audio.start()});
-  spawnHoldToggle.addEventListener('click',()=>{settings.spawnHold=!settings.spawnHold;syncSettingUI();speak(settings.spawnHold?S('새 블록이 나오면 1.4초 동안 멈춰서 모양을 확인할 수 있어요.','New pieces pause for 1.4 seconds so you can feel the shape.'):S('새 블록 확인 시간을 껐어요.','New piece hold off.'))});
+  spawnHoldToggle.addEventListener('click',()=>{settings.spawnHold=!settings.spawnHold;syncSettingUI();speak(settings.spawnHold?S('새 블록마다 항상 1.4초 멈춰서 모양을 확인할 수 있어요.','Every new piece now pauses for 1.4 seconds so you can feel the shape.'):S('항상 정지를 껐어요. 기본 난이도는 처음 보는 모양일 때만 멈춥니다.','Always-pause is off. Basic difficulty still pauses the first time a shape appears.'))});
   assistToggle.addEventListener('click',()=>{settings.assist=!settings.assist;setToggle(assistToggle,'assistState',settings.assist);saveSettings();speak(settings.assist?S('촉각 친화 잠금 유예를 켰어요.','Tactile-friendly lock delay on.'):S('잠금 유예를 짧게 설정했어요.','Short lock delay selected.'))});
   speechModeSelect.value=settings.speechMode;speechModeSelect.addEventListener('change',()=>{settings.speechMode=speechModeSelect.value;syncSettingUI();speak(S('음성 안내 방식을 변경했습니다.','Speech source changed.'))});
   musicStyleSelect.value=settings.musicStyle;musicStyleSelect.addEventListener('change',()=>{settings.musicStyle=musicStyleSelect.value;audio.setMusicStyle(settings.musicStyle);saveSettings();speak(settings.musicStyle==='retro'?S('레트로 칩튠 배경음악으로 바꿨어요.','Switched to retro chiptune music.'):S('기본 앰비언트 배경음악으로 바꿨어요.','Switched to the default ambient music.'))});
@@ -1053,7 +1151,7 @@
   window.addEventListener('resize',()=>{clearTimeout(window.__dbRz);window.__dbRz=setTimeout(()=>{renderAll();twSize()},100)});document.addEventListener('visibilitychange',()=>{if(!stage.hidden&&document.hidden&&mode==='drop'&&running&&!over&&!paused){paused=true;audio.pause();$('pauseLabel').textContent=S('계속','Resume');showPauseState();announce(S('앱이 백그라운드로 이동해 자동 일시정지했습니다.','Automatically paused while the app is in the background.'),{phase:'ready',tts:false})}});document.addEventListener('pointerdown',()=>document.body.classList.remove('kbd'));document.body.addEventListener('pointerdown',function once(){ensureAudio();try{speechSynthesis.resume()}catch(e){}document.body.removeEventListener('pointerdown',once)},{once:true});
   window.getDotpadFrame=()=>encodeHardware(portraitToHardware(buildPortraitFrame()));window.getPortraitFrame=()=>buildPortraitFrame();window.getAccessibilityState=()=>({mode,scanMode,settings:{...settings},danger:mode==='drop'?dangerLevel():0,frameLength:window.getDotpadFrame().length,brailleLine:brailleLine()});
 
-  function applyLang(){if(LANG!=='en')return;document.documentElement.lang='en';document.title='DOT BLOCKS';$('blindBadge').textContent='BLIND-FIRST';$('scoreTitle').textContent='Game Stats';$('scoreLabel').textContent='Score';$('secondaryLabel').textContent='Lines';$('levelLabel').textContent='Level';$('bestLabel').textContent='Best';$('nextTitle').textContent='Next Piece';$('holdTitle').textContent='Held Piece';$('holdHint').textContent='C / F1+F2';$('verticalTitle').textContent='Portrait DotPad';$('orientationText').innerHTML='<strong>40×60 logical pins</strong> rotate automatically into the physical 60×40 output. Stand the DotPad with controls at the bottom.';$('legend').innerHTML='<span class="legend-sample solid" aria-hidden="true"></span><span>Compact dense tile: settled block</span><span class="legend-sample outline" aria-hidden="true"></span><span>Large hollow outline: moving piece</span><span class="legend-sample ghost" aria-hidden="true"></span><span>Two dots: landing preview</span>';$('trayTitle').textContent='Pieces';$('controlsTitle').textContent='Controls';$('padKeysTitle').textContent='DotPad Keys';$('accessTitle').textContent='Audio & Accessibility';$('speechLabel').textContent='Speech guidance';$('speechModeLabel').textContent='Speech source';speechModeSelect.options[0].text='SuperDot TTS';speechModeSelect.options[1].text='Screen reader only';speechModeSelect.options[2].text='Both';$('sfxLabel').textContent='Directional earcons';$('musicLabel').textContent='Procedural music';$('assistLabel').textContent='Tactile-friendly lock delay';$('spawnHoldLabel').textContent='New piece hold';$('speedLabel').textContent='Drop speed';speedSelect.options[0].text='Tactile slow';speedSelect.options[1].text='Tactile turn-based';speedSelect.options[2].text='Relaxed';speedSelect.options[3].text='Standard';speedSelect.options[4].text='Challenge';$('musicStyleLabel').textContent='Music style';musicStyleSelect.options[0].text='Default (ambient)';musicStyleSelect.options[1].text='Retro (chiptune)';$('newLabel').textContent='Start';$('pauseLabel').textContent='Pause';$('statusLabel').textContent='Status';$('scanLabel').textContent='Surface scan';$('helpLabel').textContent='How to play';$('orientationLabel').textContent=rotateDir==='cw'?'Rotate: right':'Rotate: left';$('dpLabel').textContent='Connect DotPad';$('introDpLabel').textContent='Connect DotPad first';$('pinLabel').textContent='Pin preview';$('playHelp').textContent='← → move · ↑ rotate · ↓ soft drop · Space×2 hard drop · C hold';syncSoundBtn();$('pinCap').innerHTML='Portrait 40×60<br>compact=settled · hollow=current · two dots=landing';$('introTitleText').textContent='DOT BLOCKS';$('introEyebrow').textContent='Tactile block game';$('introTagline').textContent='Build by touch, navigate by sound.';$('introDesc').textContent='Stand the DotPad upright and play without the screen.';$('diffPracticeName').textContent='Practice';$('diffPracticeDesc').textContent='Nothing falls on its own. Take your time and feel it out.';$('diffBasicName').textContent='Basic';$('diffBasicDesc').textContent='Falls very slowly. Best for playing by touch.';$('diffChallengeName').textContent='Challenge';$('diffChallengeDesc').textContent='Falls at familiar Tetris speed.';$('puzzleModeName').textContent='Block Puzzle';$('introAccess').textContent='Enter to start · 1/2/3 difficulty · P Block Puzzle';$('settingsTitle').textContent='Game Settings';$('pauseTitle').textContent='Paused';$('pauseDesc').textContent='The game and falling piece are paused. The current DotPad pin state is preserved.';$('resumeBtn').textContent='Resume';$('pauseHomeBtn').textContent='Back to Intro';$('resultTitle').textContent='Game Over';$('restartBtn').textContent='Play Again';$('resultHomeBtn').textContent='Choose Another Mode';setToggle(speechToggle,'speechState',settings.speech);setToggle(sfxToggle,'sfxState',settings.sfx);setToggle(musicToggle,'musicState',settings.music);setToggle(assistToggle,'assistState',settings.assist)}
+  function applyLang(){if(LANG!=='en')return;document.documentElement.lang='en';document.title='DOT BLOCKS';$('blindBadge').textContent='BLIND-FIRST';$('scoreTitle').textContent='Game Stats';$('scoreLabel').textContent='Score';$('secondaryLabel').textContent='Lines';$('levelLabel').textContent='Level';$('bestLabel').textContent='Best';$('nextTitle').textContent='Next Piece';$('holdTitle').textContent='Held Piece';$('holdHint').textContent='C / F1+F2';$('verticalTitle').textContent='Portrait DotPad';$('orientationText').innerHTML='<strong>40×60 logical pins</strong> rotate automatically into the physical 60×40 output. Stand the DotPad with controls at the bottom.';$('legend').innerHTML='<span class="legend-sample solid" aria-hidden="true"></span><span>Compact dense tile: settled block</span><span class="legend-sample outline" aria-hidden="true"></span><span>Large hollow outline: moving piece</span><span class="legend-sample ghost" aria-hidden="true"></span><span>Two dots: landing preview</span>';$('trayTitle').textContent='Pieces';$('controlsTitle').textContent='Controls';$('padKeysTitle').textContent='DotPad Keys';$('accessTitle').textContent='Audio & Accessibility';$('speechLabel').textContent='Speech guidance';$('speechModeLabel').textContent='Speech source';speechModeSelect.options[0].text='SuperDot TTS';speechModeSelect.options[1].text='Screen reader only';speechModeSelect.options[2].text='Both';$('sfxLabel').textContent='Directional earcons';$('musicLabel').textContent='Procedural music';$('assistLabel').textContent='Tactile-friendly lock delay';$('spawnHoldLabel').textContent='Always pause new piece';$('speedLabel').textContent='Drop speed';speedSelect.options[0].text='Tactile slow';speedSelect.options[1].text='Tactile turn-based';speedSelect.options[2].text='Relaxed';speedSelect.options[3].text='Standard';speedSelect.options[4].text='Challenge';$('musicStyleLabel').textContent='Music style';musicStyleSelect.options[0].text='Default (original ambient/chiptune)';musicStyleSelect.options[1].text='Retro classic (secondary)';$('newLabel').textContent='Start';$('pauseLabel').textContent='Pause';$('statusLabel').textContent='Status';$('scanLabel').textContent='Surface scan';$('helpLabel').textContent='How to play';$('orientationLabel').textContent=rotateDir==='cw'?'Rotate: right':'Rotate: left';$('dpLabel').textContent='Connect DotPad';$('introDpLabel').textContent='Connect DotPad & start';$('pinLabel').textContent='Pin preview';$('playHelp').textContent='← → move · ↑ rotate · ↓ soft drop · Space×2 hard drop · C hold';syncSoundBtn();$('pinCap').innerHTML='Portrait 40×60<br>compact=settled · hollow=current · two dots=landing';$('introTitleText').textContent='DOT BLOCKS';$('introEyebrow').textContent='Tactile block game';$('introTagline').textContent='Build by touch, navigate by sound.';$('introDesc').textContent='Stand the DotPad upright and play without the screen.';$('diffPracticeName').textContent='Practice';$('diffPracticeDesc').textContent='Nothing falls on its own. Take your time and feel it out.';$('diffBasicName').textContent='Basic';$('diffBasicDesc').textContent='Falls very slowly. Best for playing by touch.';$('diffChallengeName').textContent='Challenge';$('diffChallengeDesc').textContent='Falls at familiar Tetris speed.';$('puzzleModeName').textContent='Bonus mode · Block Puzzle';$('introAccess').textContent='Enter to start without DotPad · 1/2/3 difficulty · P Block Puzzle';$('settingsTitle').textContent='Game Settings';$('pauseTitle').textContent='Paused';$('pauseDesc').textContent='The game and falling piece are paused. The current DotPad pin state is preserved.';$('resumeBtn').textContent='Resume';$('pauseHomeBtn').textContent='Back to Intro';$('resultTitle').textContent='Game Over';$('restartBtn').textContent='Play Again';$('resultHomeBtn').textContent='Choose Another Mode';setToggle(speechToggle,'speechState',settings.speech);setToggle(sfxToggle,'sfxState',settings.sfx);setToggle(musicToggle,'musicState',settings.music);setToggle(assistToggle,'assistState',settings.assist)}
 
   {const i=DIFFS.findIndex(d=>d.speed===settings.speed);if(i>=0)diffIndex=i}
   applyLang();syncSoundBtn();setMode(params.get('mode')==='puzzle'?'puzzle':'drop',false);showIntro();loadSDK();if(params.get('preview')==='1'){pinwrap.classList.add('show');pinToggle.setAttribute('aria-pressed','true');drawPin()}

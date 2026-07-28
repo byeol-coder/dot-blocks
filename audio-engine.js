@@ -67,7 +67,13 @@
       this.timer = 0;
       this.step = 0;
       this.nextStepAt = 0;
-      this.duckUntil = 0;
+      // Two independent duck levels so a spawn/rotate/lock tick and a voice
+      // announcement never fight over the same timestamp: voice ducks deep
+      // (0.18x) because speech needs to read clearly over the music, while a
+      // micro-duck only eases off (0.55x) for the ~0.2-0.3s of an operation
+      // sound so the cue stays crisp without silencing the music underneath.
+      this.voiceDuckUntil = 0;
+      this.microDuckUntil = 0;
     }
 
     ensure() {
@@ -159,7 +165,17 @@
 
     duck(milliseconds = 1600) {
       if (!this.ctx || !this.musicBus) return;
-      this.duckUntil = Math.max(this.duckUntil, this.ctx.currentTime + milliseconds / 1000);
+      this.voiceDuckUntil = Math.max(this.voiceDuckUntil, this.ctx.currentTime + milliseconds / 1000);
+      this.updateMusicGain();
+      global.setTimeout(() => this.updateMusicGain(), milliseconds + 30);
+    }
+
+    // Brief, shallow duck for spawn/rotate/lock ticks: the operation sound
+    // should read clearly against the music without going all the way quiet
+    // the way a multi-second voice announcement does.
+    microDuck(milliseconds = 260) {
+      if (!this.ctx || !this.musicBus) return;
+      this.microDuckUntil = Math.max(this.microDuckUntil, this.ctx.currentTime + milliseconds / 1000);
       this.updateMusicGain();
       global.setTimeout(() => this.updateMusicGain(), milliseconds + 30);
     }
@@ -167,8 +183,10 @@
     updateMusicGain() {
       if (!this.ctx || !this.musicBus) return;
       const now = this.ctx.currentTime;
-      const ducked = now < this.duckUntil;
-      const target = this.musicEnabled && !this.paused ? this.musicVolume * (ducked ? 0.18 : 1) : 0.0001;
+      // Voice ducking wins if both are active at once: a spawn tick that lands
+      // mid-announcement should not un-duck the voice early.
+      const duckMul = now < this.voiceDuckUntil ? 0.18 : (now < this.microDuckUntil ? 0.55 : 1);
+      const target = this.musicEnabled && !this.paused ? this.musicVolume * duckMul : 0.0001;
       this.musicBus.gain.cancelScheduledValues(now);
       this.musicBus.gain.setTargetAtTime(Math.max(0.0001, target), now, 0.08);
     }
